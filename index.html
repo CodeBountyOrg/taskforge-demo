@@ -4,12 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TaskForge — open-source task tracker</title>
+    <script>
+      (() => {
+        let storedTheme = null;
+        try {
+          storedTheme = window.localStorage.getItem("taskforge.theme");
+        } catch {
+          storedTheme = null;
+        }
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const theme = storedTheme || (prefersDark ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="app-header">
-      <h1>TaskForge</h1>
-      <p class="tagline">A tiny task list that lives in your browser.</p>
+      <div class="header-content">
+        <div>
+          <h1>TaskForge</h1>
+          <p class="tagline">A tiny task list that lives in your browser.</p>
+        </div>
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          type="button"
+          aria-label="Switch to dark theme"
+          aria-pressed="false"
+        >
+          <span class="theme-toggle-icon" aria-hidden="true"></span>
+          <span class="theme-toggle-text">Theme</span>
+        </button>
+      </div>
     </header>
 
     <main class="app-main">
