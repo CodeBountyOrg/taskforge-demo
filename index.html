@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TaskForge — open-source task tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>TaskForge</h1>
+      <p class="tagline">A tiny task list that lives in your browser.</p>
+    </header>
+
+    <main class="app-main">
+      <form id="task-form" class="task-form" aria-label="Add a new task">
+        <input
+          id="task-input"
+          type="text"
+          name="title"
+          placeholder="What needs doing?"
+          autocomplete="off"
+          required
+        />
+        <button type="submit">Add</button>
+      </form>
+
+      <ul id="task-list" class="task-list" aria-live="polite"></ul>
+
+      <p id="empty-state" class="empty-state" hidden>
+        No tasks yet. Add one above to get started.
+      </p>
+    </main>
+
+    <footer class="app-footer">
+      <a href="https://github.com/CodeBountyOrg/taskforge-demo">
+        github.com/CodeBountyOrg/taskforge-demo
+      </a>
+    </footer>
+
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
