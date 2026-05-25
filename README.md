@@ -9,7 +9,7 @@ A simple, community-maintained open-source task tracker. Add tasks, check them o
 - Single-page, zero-build static web app
 - Tasks persist in `localStorage` — no account, no server, no tracking
 - Keyboard-friendly (more shortcuts coming, see #5)
-- Light & dark themes (dark coming, see #1)
+- Light & dark themes with persisted user preference
 - MIT licensed
 
 ## Quick start

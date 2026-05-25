@@ -6,7 +6,25 @@
   --accent: #0969da;
   --accent-fg: #ffffff;
   --done: #8c959f;
+  --surface: #f6f8fa;
+  --danger: #cf222e;
+  --danger-bg: rgba(207, 34, 46, 0.08);
   --radius: 6px;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --fg: #f0f6fc;
+  --muted: #8b949e;
+  --border: #30363d;
+  --accent: #58a6ff;
+  --accent-fg: #0d1117;
+  --done: #6e7681;
+  --surface: #161b22;
+  --danger: #ff7b72;
+  --danger-bg: rgba(255, 123, 114, 0.12);
+  color-scheme: dark;
 }
 
 * {
@@ -15,8 +33,8 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--fg);
   line-height: 1.5;
@@ -24,14 +42,22 @@ body {
 
 .app-header {
   padding: 2rem 1.25rem 1rem;
-  text-align: center;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
+}
+
+.header-content {
+  max-width: 36rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .app-header h1 {
   margin: 0;
   font-size: 1.75rem;
-  letter-spacing: -0.01em;
 }
 
 .tagline {
@@ -78,6 +104,21 @@ body {
   cursor: pointer;
 }
 
+.theme-toggle {
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+}
+
 .task-form button:hover {
   filter: brightness(1.05);
 }
@@ -98,6 +139,7 @@ body {
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .task-item.done .task-title {
@@ -122,8 +164,8 @@ body {
 }
 
 .task-delete:hover {
-  color: #cf222e;
-  background: rgba(207, 34, 46, 0.08);
+  color: var(--danger);
+  background: var(--danger-bg);
 }
 
 .empty-state {
@@ -141,4 +183,11 @@ body {
 
 .app-footer a {
   color: inherit;
+}
+
+@media (max-width: 32rem) {
+  .header-content {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

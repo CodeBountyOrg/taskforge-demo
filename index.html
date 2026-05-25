@@ -1,15 +1,37 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TaskForge — open-source task tracker</title>
+    <script>
+      (() => {
+        const savedTheme = localStorage.getItem("taskforge.theme");
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        document.documentElement.dataset.theme =
+          savedTheme || (prefersDark ? "dark" : "light");
+      })();
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="app-header">
-      <h1>TaskForge</h1>
-      <p class="tagline">A tiny task list that lives in your browser.</p>
+      <div class="header-content">
+        <div>
+          <h1>TaskForge</h1>
+          <p class="tagline">A tiny task list that lives in your browser.</p>
+        </div>
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          Dark mode
+        </button>
+      </div>
     </header>
 
     <main class="app-main">
