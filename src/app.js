@@ -5,8 +5,23 @@ const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
+const themeToggle = document.getElementById("theme-toggle");
 
 let tasks = load();
+
+function currentTheme() {
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+}
+
+function setTheme(theme, persist = false) {
+  document.documentElement.dataset.theme = theme;
+  if (persist) {
+    window.localStorage.setItem("taskforge.theme", theme);
+  }
+  const nextTheme = theme === "dark" ? "light" : "dark";
+  themeToggle.setAttribute("aria-label", `Switch to ${nextTheme} theme`);
+  themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
+}
 
 function render() {
   list.innerHTML = "";
@@ -60,4 +75,9 @@ form.addEventListener("submit", (e) => {
   render();
 });
 
+themeToggle.addEventListener("click", () => {
+  setTheme(currentTheme() === "dark" ? "light" : "dark", true);
+});
+
+setTheme(currentTheme());
 render();
