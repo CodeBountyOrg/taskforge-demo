@@ -47,13 +47,15 @@ body {
 }
 
 .task-form {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
 }
 
-.task-form input {
-  flex: 1;
+.task-form input,
+.task-form textarea {
+  width: 100%;
   padding: 0.5rem 0.75rem;
   font: inherit;
   color: inherit;
@@ -62,13 +64,21 @@ body {
   border-radius: var(--radius);
 }
 
-.task-form input:focus {
+.task-form textarea {
+  grid-column: 1 / -1;
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.task-form input:focus,
+.task-form textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: var(--accent);
 }
 
 .task-form button {
+  align-self: start;
   padding: 0.5rem 1rem;
   font: inherit;
   color: var(--accent-fg);
@@ -100,14 +110,46 @@ body {
   border-radius: var(--radius);
 }
 
-.task-item.done .task-title {
+.task-item.done .task-content {
   text-decoration: line-through;
   color: var(--done);
 }
 
-.task-title {
+.task-content {
   flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  display: block;
+  font-weight: 600;
   word-break: break-word;
+}
+
+.task-description {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.task-description p {
+  margin: 0.25rem 0 0;
+}
+
+.task-description code {
+  padding: 0.1rem 0.25rem;
+  color: var(--fg);
+  background: #f6f8fa;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 0.9em;
+}
+
+.task-description a {
+  color: var(--accent);
 }
 
 .task-delete {
