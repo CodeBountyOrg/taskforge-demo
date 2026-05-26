@@ -101,13 +101,24 @@ body {
 }
 
 .task-item.done .task-title {
-  text-decoration: line-through;
   color: var(--done);
 }
 
 .task-title {
   flex: 1;
+  position: relative;
   word-break: break-word;
+}
+
+.task-item.done .task-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 0.1em solid currentColor;
+  opacity: 0.75;
+  pointer-events: none;
 }
 
 .task-delete {
