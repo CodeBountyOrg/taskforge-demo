@@ -1,10 +1,12 @@
 import { load, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
+import { t, setLang, translatePage } from "./i18n.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
+const langSwitch = document.getElementById("lang-switch");
 
 let tasks = load();
 
@@ -37,7 +39,7 @@ function render() {
     del.type = "button";
     del.className = "task-delete";
     del.textContent = "✕";
-    del.setAttribute("aria-label", `Delete task: ${task.title}`);
+    del.setAttribute("aria-label", t("deleteLabel")(task.title));
     del.addEventListener("click", () => {
       tasks = removeTask(tasks, task.id);
       save(tasks);
@@ -60,4 +62,10 @@ form.addEventListener("submit", (e) => {
   render();
 });
 
+langSwitch.addEventListener("change", () => {
+  setLang(langSwitch.value);
+  render();
+});
+
+translatePage();
 render();
