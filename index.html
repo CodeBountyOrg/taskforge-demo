@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,14 +14,22 @@
 
     <main class="app-main">
       <form id="task-form" class="task-form" aria-label="Add a new task">
-        <input
-          id="task-input"
-          type="text"
-          name="title"
-          placeholder="What needs doing?"
-          autocomplete="off"
-          required
-        />
+        <div class="task-fields">
+          <input
+            id="task-input"
+            type="text"
+            name="title"
+            placeholder="What needs doing?"
+            autocomplete="off"
+            required
+          />
+          <textarea
+            id="task-description"
+            name="description"
+            rows="3"
+            placeholder="Add details with Markdown (optional)"
+          ></textarea>
+        </div>
         <button type="submit">Add</button>
       </form>
 
