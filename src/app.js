@@ -5,8 +5,33 @@ const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
+const themeToggle = document.getElementById("theme-toggle");
+const themePreference = window.matchMedia("(prefers-color-scheme: dark)");
+const THEME_KEY = "taskforge.theme";
 
 let tasks = load();
+
+function getStoredTheme() {
+  const theme = window.localStorage.getItem(THEME_KEY);
+  return theme === "dark" || theme === "light" ? theme : null;
+}
+
+function getActiveTheme() {
+  return getStoredTheme() ?? (themePreference.matches ? "dark" : "light");
+}
+
+function updateThemeToggle() {
+  const activeTheme = getActiveTheme();
+  const isDark = activeTheme === "dark";
+  themeToggle.textContent = isDark ? "Light mode" : "Dark mode";
+  themeToggle.setAttribute("aria-pressed", String(isDark));
+}
+
+function setTheme(theme) {
+  window.localStorage.setItem(THEME_KEY, theme);
+  document.documentElement.dataset.theme = theme;
+  updateThemeToggle();
+}
 
 function render() {
   list.innerHTML = "";
@@ -60,4 +85,15 @@ form.addEventListener("submit", (e) => {
   render();
 });
 
+themeToggle.addEventListener("click", () => {
+  setTheme(getActiveTheme() === "dark" ? "light" : "dark");
+});
+
+themePreference.addEventListener("change", () => {
+  if (!getStoredTheme()) {
+    updateThemeToggle();
+  }
+});
+
+updateThemeToggle();
 render();
