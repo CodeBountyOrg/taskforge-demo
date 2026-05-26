@@ -6,6 +6,7 @@ A simple, community-maintained open-source task tracker. Add tasks, check them o
 
 ## Features
 
+- Optional task descriptions with sanitized basic Markdown rendering
 - Single-page, zero-build static web app
 - Tasks persist in `localStorage` — no account, no server, no tracking
 - Keyboard-friendly (more shortcuts coming, see #5)
