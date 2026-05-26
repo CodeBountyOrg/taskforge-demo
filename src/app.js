@@ -1,12 +1,16 @@
 import { load, save } from "./storage.js";
+import { initThemeToggle } from "./theme.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
+const themeToggle = document.getElementById("theme-toggle");
 
 let tasks = load();
+
+initThemeToggle({ button: themeToggle });
 
 function render() {
   list.innerHTML = "";
