@@ -24,9 +24,11 @@ function render() {
     checkbox.type = "checkbox";
     checkbox.checked = task.done;
     checkbox.addEventListener("change", () => {
-      tasks = toggleTask(tasks, task.id);
-      save(tasks);
-      render();
+      setTimeout(() => {
+        tasks = toggleTask(tasks, task.id);
+        save(tasks);
+        render();
+      }, 0);
     });
 
     const label = document.createElement("span");
