@@ -1,8 +1,10 @@
 import { load, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
+import { renderMarkdown } from "./markdown.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
+const descriptionInput = document.getElementById("task-description");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 
@@ -29,9 +31,20 @@ function render() {
       render();
     });
 
+    const content = document.createElement("div");
+    content.className = "task-content";
+
     const label = document.createElement("span");
     label.className = "task-title";
     label.textContent = task.title;
+    content.append(label);
+
+    if (task.description) {
+      const description = document.createElement("div");
+      description.className = "task-description";
+      description.append(renderMarkdown(task.description));
+      content.append(description);
+    }
 
     const del = document.createElement("button");
     del.type = "button";
@@ -44,7 +57,7 @@ function render() {
       render();
     });
 
-    li.append(checkbox, label, del);
+    li.append(checkbox, content, del);
     list.appendChild(li);
   }
 }
@@ -53,9 +66,10 @@ form.addEventListener("submit", (e) => {
   e.preventDefault();
   const title = input.value.trim();
   if (!title) return;
-  tasks = [createTask(title), ...tasks];
+  tasks = [createTask(title, descriptionInput.value), ...tasks];
   save(tasks);
   input.value = "";
+  descriptionInput.value = "";
   input.focus();
   render();
 });
