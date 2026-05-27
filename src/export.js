@@ -3,7 +3,9 @@ function todayStamp() {
 }
 
 export function exportJson(tasks) {
-  const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(tasks, null, 2)], {
+    type: "application/json",
+  });
   download(blob, `taskforge-export-${todayStamp()}.json`);
 }
 

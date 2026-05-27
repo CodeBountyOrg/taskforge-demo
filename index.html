@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -13,8 +13,9 @@
         } catch {
           theme = null;
         }
-        const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")
-          .matches;
+        const prefersDark = window.matchMedia?.(
+          "(prefers-color-scheme: dark)",
+        ).matches;
         const resolved =
           theme === "light" || theme === "dark"
             ? theme
@@ -29,21 +30,34 @@
   </head>
   <body>
     <header class="app-header">
-      <div>
+      <div class="header-copy">
         <h1>TaskForge</h1>
         <p class="tagline">A tiny task list that lives in your browser.</p>
       </div>
-      <button
-        id="theme-toggle"
-        class="theme-toggle"
-        type="button"
-        aria-pressed="false"
-      >
-        Dark mode
-      </button>
+      <div class="header-actions">
+        <div class="auth-panel" aria-live="polite">
+          <img id="auth-avatar" class="auth-avatar" hidden />
+          <span id="auth-status" class="auth-status">
+            Tasks are stored on this device.
+          </span>
+          <button id="auth-action" class="auth-action" type="button">
+            Sign in with GitHub
+          </button>
+        </div>
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          Dark mode
+        </button>
+      </div>
     </header>
 
     <main class="app-main">
+      <p id="auth-message" class="auth-message" hidden></p>
+
       <form id="task-form" class="task-form" aria-label="Add a new task">
         <input
           id="task-input"

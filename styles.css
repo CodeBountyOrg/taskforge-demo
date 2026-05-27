@@ -35,8 +35,8 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--fg);
   line-height: 1.5;
@@ -47,7 +47,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 2rem 1.25rem 1rem;
+  padding: 1.25rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -61,6 +61,13 @@ body {
   margin: 0.25rem 0 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .theme-toggle {
@@ -84,10 +91,56 @@ body {
   outline-offset: 2px;
 }
 
+.auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  min-width: 16rem;
+}
+
+.auth-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+}
+
+.auth-status {
+  max-width: 14rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.auth-action {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.auth-action:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .app-main {
   max-width: 36rem;
   margin: 0 auto;
   padding: 1.5rem 1.25rem;
+}
+
+.auth-message {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  color: #7d4e00;
+  background: #fff8c5;
+  border: 1px solid #d4a72c;
+  border-radius: var(--radius);
 }
 
 .task-form {
@@ -188,9 +241,26 @@ body {
   color: inherit;
 }
 
-@media (max-width: 36rem) {
+@media (max-width: 44rem) {
   .app-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .header-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .auth-panel {
+    justify-content: flex-start;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .auth-status {
+    flex: 1;
+    max-width: none;
   }
 }
