@@ -20,7 +20,8 @@ export async function startGitHubSignIn() {
   const codeVerifier = randomString(64);
   const codeChallenge = await pkceChallenge(codeVerifier);
   const redirectUri =
-    config.redirectUri || `${window.location.origin}${window.location.pathname}`;
+    config.redirectUri ||
+    `${window.location.origin}${window.location.pathname}`;
 
   window.sessionStorage.setItem(AUTH_STATE_KEY, state);
   window.sessionStorage.setItem(CODE_VERIFIER_KEY, codeVerifier);

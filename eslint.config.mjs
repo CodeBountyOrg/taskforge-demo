@@ -1,7 +1,9 @@
 const browserGlobals = {
+  Blob: "readonly",
   crypto: "readonly",
   document: "readonly",
   fetch: "readonly",
+  HTMLElement: "readonly",
   TextEncoder: "readonly",
   URL: "readonly",
   URLSearchParams: "readonly",

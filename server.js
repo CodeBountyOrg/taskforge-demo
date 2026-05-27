@@ -8,7 +8,8 @@ const PORT = Number(process.env.PORT || 8000);
 const PUBLIC_DIR = __dirname;
 const PUBLIC_ROOT = `${PUBLIC_DIR}${path.sep}`;
 const DATA_FILE =
-  process.env.TASKFORGE_DATA_FILE || path.join(__dirname, ".taskforge-data.json");
+  process.env.TASKFORGE_DATA_FILE ||
+  path.join(__dirname, ".taskforge-data.json");
 const SESSION_COOKIE = "taskforge_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 

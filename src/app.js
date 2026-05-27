@@ -11,6 +11,9 @@ const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
+const themeToggle = document.getElementById("theme-toggle");
+const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+const themeStorageKey = "taskforge.theme";
 const authStatus = document.getElementById("auth-status");
 const authAction = document.getElementById("auth-action");
 const authAvatar = document.getElementById("auth-avatar");
@@ -44,6 +47,21 @@ async function init() {
   render();
 }
 
+function getSystemTheme() {
+  return themeMedia.matches ? "dark" : "light";
+}
+
+function getSavedTheme() {
+  return window.localStorage.getItem(themeStorageKey);
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const isDark = theme === "dark";
+  themeToggle.textContent = isDark ? "Light mode" : "Dark mode";
+  themeToggle.setAttribute("aria-pressed", String(isDark));
+}
+
 function render() {
   list.innerHTML = "";
   if (tasks.length === 0) {
@@ -72,7 +90,7 @@ function render() {
     const del = document.createElement("button");
     del.type = "button";
     del.className = "task-delete";
-    del.textContent = "✕";
+    del.textContent = "x";
     del.setAttribute("aria-label", `Delete task: ${task.title}`);
     del.addEventListener("click", async () => {
       tasks = removeTask(tasks, task.id);
@@ -84,6 +102,19 @@ function render() {
     list.appendChild(li);
   }
 }
+
+themeToggle.addEventListener("click", () => {
+  const nextTheme =
+    document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  window.localStorage.setItem(themeStorageKey, nextTheme);
+  applyTheme(nextTheme);
+});
+
+themeMedia.addEventListener("change", () => {
+  if (!getSavedTheme()) {
+    applyTheme(getSystemTheme());
+  }
+});
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -146,4 +177,5 @@ function mergeTasks(localTasks, remoteTasks) {
   return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+applyTheme(getSavedTheme() || getSystemTheme());
 init();
