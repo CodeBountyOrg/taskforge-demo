@@ -209,3 +209,48 @@ body {
     max-width: none;
   }
 }
+
+.task-fields {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.task-form textarea {
+  min-height: 5rem;
+  resize: vertical;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.task-form textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-description {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.task-description p {
+  margin: 0.25rem 0 0;
+}
+
+.task-description code {
+  padding: 0.1rem 0.25rem;
+  background: rgba(175, 184, 193, 0.2);
+  border-radius: 4px;
+}
