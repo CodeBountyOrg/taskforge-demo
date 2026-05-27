@@ -5,10 +5,12 @@ import {
   startGitHubSignIn,
 } from "./auth.js";
 import { load, loadLocal, save } from "./storage.js";
+import { renderMarkdown } from "./markdown.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
+const description = document.getElementById("task-description");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 const authStatus = document.getElementById("auth-status");
@@ -65,9 +67,20 @@ function render() {
       render();
     });
 
+    const content = document.createElement("div");
+    content.className = "task-content";
+
     const label = document.createElement("span");
     label.className = "task-title";
     label.textContent = task.title;
+    content.append(label);
+
+    if (task.description) {
+      const descriptionEl = document.createElement("div");
+      descriptionEl.className = "task-description";
+      descriptionEl.innerHTML = renderMarkdown(task.description);
+      content.append(descriptionEl);
+    }
 
     const del = document.createElement("button");
     del.type = "button";
@@ -80,7 +93,7 @@ function render() {
       render();
     });
 
-    li.append(checkbox, label, del);
+    li.append(checkbox, content, del);
     list.appendChild(li);
   }
 }
@@ -89,9 +102,10 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = input.value.trim();
   if (!title) return;
-  tasks = [createTask(title), ...tasks];
+  tasks = [createTask(title, description.value), ...tasks];
   await save(tasks, user);
   input.value = "";
+  description.value = "";
   input.focus();
   render();
 });
