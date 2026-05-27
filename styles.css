@@ -51,6 +51,23 @@ body {
   min-width: 16rem;
 }
 
+.locale-control {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.locale-control select {
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 .auth-avatar {
   width: 2rem;
   height: 2rem;
