@@ -261,6 +261,7 @@ function sanitizeTasks(tasks) {
     .map((task) => ({
       id: normalizeString(task.id).slice(0, 128),
       title: normalizeString(task.title).slice(0, 500),
+      description: normalizeString(task.description).slice(0, 2000),
       done: Boolean(task.done),
       createdAt: Number.isFinite(task.createdAt) ? task.createdAt : Date.now(),
     }))

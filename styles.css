@@ -96,22 +96,25 @@ body {
 }
 
 .task-form {
-  display: flex;
+  display: grid;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
 }
 
-.task-form input {
-  flex: 1;
+.task-form input,
+.task-form textarea {
+  width: 100%;
   padding: 0.5rem 0.75rem;
   font: inherit;
   color: inherit;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  resize: vertical;
 }
 
-.task-form input:focus {
+.task-form input:focus,
+.task-form textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: var(--accent);
@@ -149,14 +152,36 @@ body {
   border-radius: var(--radius);
 }
 
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
 .task-item.done .task-title {
   text-decoration: line-through;
   color: var(--done);
 }
 
 .task-title {
-  flex: 1;
   word-break: break-word;
+}
+
+.task-description {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.task-description code {
+  padding: 0.1rem 0.25rem;
+  color: var(--fg);
+  background: rgba(128, 128, 128, 0.15);
+  border-radius: 3px;
+}
+
+.task-description a {
+  color: var(--accent);
 }
 
 .task-delete {
