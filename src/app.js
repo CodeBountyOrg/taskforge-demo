@@ -67,7 +67,7 @@ function render() {
 
     const label = document.createElement("span");
     label.className = "task-title";
-    label.textContent = task.title;
+    label.append(...renderMarkdown(task.title));
 
     const del = document.createElement("button");
     del.type = "button";
@@ -136,6 +136,47 @@ function renderAuth() {
 function setAuthMessage(message) {
   authMessage.textContent = message;
   authMessage.hidden = !message;
+}
+
+export function renderMarkdown(markdown) {
+  const fragment = document.createDocumentFragment();
+  const pattern = /(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(`([^`]+)`)|(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(markdown)) !== null) {
+    appendText(fragment, markdown.slice(lastIndex, match.index));
+    if (match[2]) {
+      const strong = document.createElement("strong");
+      strong.textContent = match[2];
+      fragment.append(strong);
+    } else if (match[4]) {
+      const emphasis = document.createElement("em");
+      emphasis.textContent = match[4];
+      fragment.append(emphasis);
+    } else if (match[6]) {
+      const code = document.createElement("code");
+      code.textContent = match[6];
+      fragment.append(code);
+    } else if (match[8] && match[9]) {
+      const anchor = document.createElement("a");
+      anchor.href = match[9];
+      anchor.textContent = match[8];
+      anchor.rel = "noopener noreferrer";
+      anchor.target = "_blank";
+      fragment.append(anchor);
+    }
+    lastIndex = pattern.lastIndex;
+  }
+
+  appendText(fragment, markdown.slice(lastIndex));
+  return fragment.childNodes;
+}
+
+function appendText(fragment, text) {
+  if (text) {
+    fragment.append(document.createTextNode(text));
+  }
 }
 
 function mergeTasks(localTasks, remoteTasks) {
