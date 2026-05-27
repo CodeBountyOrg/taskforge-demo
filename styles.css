@@ -97,11 +97,13 @@ body {
 
 .task-form {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
 }
 
-.task-form input {
+.task-form input,
+.task-form textarea {
   flex: 1;
   padding: 0.5rem 0.75rem;
   font: inherit;
@@ -111,7 +113,13 @@ body {
   border-radius: var(--radius);
 }
 
-.task-form input:focus {
+.task-form textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.task-form input:focus,
+.task-form textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: var(--accent);
@@ -155,8 +163,35 @@ body {
 }
 
 .task-title {
-  flex: 1;
+  display: block;
+  font-weight: 600;
   word-break: break-word;
+}
+
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-description {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.93rem;
+  word-break: break-word;
+}
+
+.task-description p {
+  margin: 0;
+}
+
+.task-description a {
+  color: var(--accent);
+}
+
+.task-description code {
+  padding: 0.08rem 0.25rem;
+  background: rgba(175, 184, 193, 0.2);
+  border-radius: 4px;
 }
 
 .task-delete {
