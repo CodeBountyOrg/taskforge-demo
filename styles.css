@@ -3,10 +3,30 @@
   --fg: #1f2328;
   --muted: #6e7781;
   --border: #d0d7de;
+  --surface: #f6f8fa;
+  --surface-hover: #eef2f6;
   --accent: #0969da;
   --accent-fg: #ffffff;
   --done: #8c959f;
+  --danger: #cf222e;
+  --danger-bg: rgba(207, 34, 46, 0.08);
+  color-scheme: light;
   --radius: 6px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --border: #30363d;
+  --surface: #161b22;
+  --surface-hover: #21262d;
+  --accent: #2f81f7;
+  --accent-fg: #ffffff;
+  --done: #6e7681;
+  --danger: #ff7b72;
+  --danger-bg: rgba(248, 81, 73, 0.14);
+  color-scheme: dark;
 }
 
 * {
@@ -15,8 +35,8 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--fg);
   line-height: 1.5;
@@ -41,6 +61,34 @@ body {
   margin: 0.25rem 0 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.theme-toggle {
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: var(--surface-hover);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .auth-panel {
@@ -145,6 +193,7 @@ body {
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
@@ -171,8 +220,8 @@ body {
 }
 
 .task-delete:hover {
-  color: #cf222e;
-  background: rgba(207, 34, 46, 0.08);
+  color: var(--danger);
+  background: var(--danger-bg);
 }
 
 .empty-state {
@@ -196,6 +245,12 @@ body {
   .app-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .header-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
   }
 
   .auth-panel {

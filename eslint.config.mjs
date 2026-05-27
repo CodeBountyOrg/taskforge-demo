@@ -1,7 +1,10 @@
 const browserGlobals = {
+  btoa: "readonly",
   crypto: "readonly",
   document: "readonly",
   fetch: "readonly",
+  localStorage: "readonly",
+  sessionStorage: "readonly",
   TextEncoder: "readonly",
   URL: "readonly",
   URLSearchParams: "readonly",
@@ -11,10 +14,14 @@ const browserGlobals = {
 const nodeGlobals = {
   Buffer: "readonly",
   console: "readonly",
-  module: "readonly",
+  fetch: "readonly",
   process: "readonly",
-  require: "readonly",
-  __dirname: "readonly",
+};
+
+const testGlobals = {
+  ...nodeGlobals,
+  Map: "readonly",
+  Set: "readonly",
 };
 
 export default [
@@ -22,8 +29,12 @@ export default [
     files: ["server.js", "test/**/*.js"],
     languageOptions: {
       ecmaVersion: 2023,
-      sourceType: "commonjs",
-      globals: nodeGlobals,
+      sourceType: "module",
+      globals: testGlobals,
+    },
+    rules: {
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      semi: ["error", "always"],
     },
   },
   {
@@ -32,6 +43,10 @@ export default [
       ecmaVersion: 2023,
       sourceType: "module",
       globals: browserGlobals,
+    },
+    rules: {
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      semi: ["error", "always"],
     },
   },
 ];

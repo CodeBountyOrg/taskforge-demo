@@ -6,11 +6,13 @@ import {
 } from "./auth.js";
 import { load, loadLocal, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
+import { initThemeToggle } from "./theme.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
+const themeToggle = document.getElementById("theme-toggle");
 const authStatus = document.getElementById("auth-status");
 const authAction = document.getElementById("auth-action");
 const authAvatar = document.getElementById("auth-avatar");
@@ -43,6 +45,8 @@ async function init() {
   renderAuth();
   render();
 }
+
+initThemeToggle({ button: themeToggle });
 
 function render() {
   list.innerHTML = "";

@@ -1,7 +1,11 @@
-const crypto = require("node:crypto");
-const fs = require("node:fs/promises");
-const http = require("node:http");
-const path = require("node:path");
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import http from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 8000);
@@ -22,7 +26,7 @@ const CONTENT_TYPES = {
 
 const sessions = new Map();
 
-function createServer(options = {}) {
+export function createServer(options = {}) {
   const dataFile = options.dataFile || DATA_FILE;
   const fetchImpl = options.fetchImpl || global.fetch;
   const sessionStore = options.sessionStore || sessions;
@@ -254,7 +258,7 @@ async function readJson(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-function sanitizeTasks(tasks) {
+export function sanitizeTasks(tasks) {
   if (!Array.isArray(tasks)) return [];
   return tasks
     .filter((task) => task && typeof task === "object")
@@ -311,14 +315,10 @@ function sendText(res, statusCode, text) {
   res.end(text);
 }
 
-if (require.main === module) {
+if (process.argv[1] === __filename) {
   createServer().listen(PORT, HOST, () => {
     console.log(`TaskForge listening at http://${HOST}:${PORT}`);
   });
 }
 
-module.exports = {
-  SESSION_COOKIE,
-  createServer,
-  sanitizeTasks,
-};
+export { SESSION_COOKIE };
