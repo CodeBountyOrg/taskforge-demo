@@ -67,13 +67,13 @@ function render() {
 
     const label = document.createElement("span");
     label.className = "task-title";
-    label.textContent = task.title;
+    label.append(document.createTextNode(task.title));
 
     const del = document.createElement("button");
     del.type = "button";
     del.className = "task-delete";
     del.textContent = "✕";
-    del.setAttribute("aria-label", `Delete task: ${task.title}`);
+    del.setAttribute("aria-label", "Delete task");
     del.addEventListener("click", async () => {
       tasks = removeTask(tasks, task.id);
       await save(tasks, user);

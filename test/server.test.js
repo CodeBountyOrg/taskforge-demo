@@ -19,6 +19,27 @@ test("sanitizeTasks drops malformed rows and trims persisted fields", () => {
   );
 });
 
+test("sanitizeTasks preserves complex emoji title sequences", () => {
+  assert.deepEqual(
+    sanitizeTasks([
+      {
+        id: "emoji",
+        title: "Plan trip 👨‍👩‍👧‍👦",
+        done: false,
+        createdAt: 20,
+      },
+    ]),
+    [
+      {
+        id: "emoji",
+        title: "Plan trip 👨‍👩‍👧‍👦",
+        done: false,
+        createdAt: 20,
+      },
+    ],
+  );
+});
+
 test("GitHub OAuth exchange sets an HTTP-only session cookie without exposing tokens", async () => {
   const previousClientId = process.env.GITHUB_CLIENT_ID;
   process.env.GITHUB_CLIENT_ID = "client-id";
