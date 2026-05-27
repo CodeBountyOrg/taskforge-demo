@@ -5,5 +5,6 @@ node_modules/
 dist/
 build/
 *.log
+.taskforge-data.json
 .vscode/
 .idea/

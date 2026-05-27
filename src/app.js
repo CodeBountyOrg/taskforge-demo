@@ -1,4 +1,10 @@
-import { load, save } from "./storage.js";
+import {
+  completeGitHubSignIn,
+  getSession,
+  logout,
+  startGitHubSignIn,
+} from "./auth.js";
+import { load, loadLocal, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
 
 const form = document.getElementById("task-form");
@@ -8,15 +14,45 @@ const emptyState = document.getElementById("empty-state");
 const themeToggle = document.getElementById("theme-toggle");
 const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 const themeStorageKey = "taskforge.theme";
+const authStatus = document.getElementById("auth-status");
+const authAction = document.getElementById("auth-action");
+const authAvatar = document.getElementById("auth-avatar");
+const authMessage = document.getElementById("auth-message");
 
-let tasks = load();
+let tasks = [];
+let user = null;
+
+async function init() {
+  const localTasks = loadLocal();
+  let completedSignIn = false;
+  try {
+    user = await completeGitHubSignIn();
+    completedSignIn = Boolean(user);
+  } catch (error) {
+    setAuthMessage(error.message);
+  }
+  if (!user) {
+    try {
+      ({ user } = await getSession());
+    } catch {
+      user = null;
+    }
+  }
+  tasks = await load(user);
+  if (completedSignIn) {
+    tasks = mergeTasks(localTasks, tasks);
+    await save(tasks, user);
+  }
+  renderAuth();
+  render();
+}
 
 function getSystemTheme() {
   return themeMedia.matches ? "dark" : "light";
 }
 
 function getSavedTheme() {
-  return localStorage.getItem(themeStorageKey);
+  return window.localStorage.getItem(themeStorageKey);
 }
 
 function applyTheme(theme) {
@@ -41,9 +77,9 @@ function render() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = task.done;
-    checkbox.addEventListener("change", () => {
+    checkbox.addEventListener("change", async () => {
       tasks = toggleTask(tasks, task.id);
-      save(tasks);
+      await save(tasks, user);
       render();
     });
 
@@ -54,11 +90,11 @@ function render() {
     const del = document.createElement("button");
     del.type = "button";
     del.className = "task-delete";
-    del.textContent = "✕";
+    del.textContent = "x";
     del.setAttribute("aria-label", `Delete task: ${task.title}`);
-    del.addEventListener("click", () => {
+    del.addEventListener("click", async () => {
       tasks = removeTask(tasks, task.id);
-      save(tasks);
+      await save(tasks, user);
       render();
     });
 
@@ -70,7 +106,7 @@ function render() {
 themeToggle.addEventListener("click", () => {
   const nextTheme =
     document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  localStorage.setItem(themeStorageKey, nextTheme);
+  window.localStorage.setItem(themeStorageKey, nextTheme);
   applyTheme(nextTheme);
 });
 
@@ -80,16 +116,66 @@ themeMedia.addEventListener("change", () => {
   }
 });
 
-form.addEventListener("submit", (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = input.value.trim();
   if (!title) return;
   tasks = [createTask(title), ...tasks];
-  save(tasks);
+  await save(tasks, user);
   input.value = "";
   input.focus();
   render();
 });
 
+authAction.addEventListener("click", async () => {
+  authAction.disabled = true;
+  try {
+    if (user) {
+      await logout();
+      user = null;
+      tasks = await load(user);
+      render();
+      renderAuth();
+      return;
+    }
+    await startGitHubSignIn();
+  } catch (error) {
+    setAuthMessage(error.message);
+    authAction.disabled = false;
+  }
+});
+
+function renderAuth() {
+  authAction.disabled = false;
+  if (!user) {
+    authAvatar.hidden = true;
+    authAvatar.removeAttribute("src");
+    authAvatar.removeAttribute("alt");
+    authStatus.textContent = "Tasks are stored on this device.";
+    authAction.textContent = "Sign in with GitHub";
+    return;
+  }
+
+  authAvatar.hidden = false;
+  authAvatar.src = user.avatarUrl;
+  authAvatar.alt = `${user.login}'s avatar`;
+  authStatus.textContent = `Signed in as ${user.login}`;
+  authAction.textContent = "Logout";
+  setAuthMessage("");
+}
+
+function setAuthMessage(message) {
+  authMessage.textContent = message;
+  authMessage.hidden = !message;
+}
+
+function mergeTasks(localTasks, remoteTasks) {
+  const byId = new Map();
+  for (const task of [...remoteTasks, ...localTasks]) {
+    byId.set(task.id, task);
+  }
+  return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
+}
+
 applyTheme(getSavedTheme() || getSystemTheme());
-render();
+init();

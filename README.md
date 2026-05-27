@@ -6,8 +6,9 @@ A simple, community-maintained open-source task tracker. Add tasks, check them o
 
 ## Features
 
-- Single-page, zero-build static web app
-- Tasks persist in `localStorage` — no account, no server, no tracking
+- Single-page, zero-build web app
+- Tasks persist in `localStorage` by default, with optional GitHub sign-in sync
+- GitHub OAuth uses PKCE in the browser and an HTTP-only session cookie
 - Keyboard-friendly (more shortcuts coming, see #5)
 - Light & dark themes with persisted user preference
 - MIT licensed
@@ -17,9 +18,13 @@ A simple, community-maintained open-source task tracker. Add tasks, check them o
 ```sh
 git clone https://github.com/CodeBountyOrg/taskforge-demo.git
 cd taskforge-demo
-python3 -m http.server 8000      # or any static file server
+npm start
 open http://localhost:8000
 ```
+
+GitHub sign-in is enabled when `GITHUB_CLIENT_ID` is set. If your OAuth app
+requires it, set `GITHUB_CLIENT_SECRET` on the server too; the secret is only
+used by the backend token exchange endpoint.
 
 ## Contributing
 
@@ -36,7 +41,8 @@ Maintainers approve bounties before they open and review all PRs before merge.
 
 - HTML5, CSS3 (custom properties + flexbox)
 - Vanilla JavaScript (ES2020+); no framework, no build step
-- `localStorage` for persistence
+- Built-in Node.js server for static assets, GitHub OAuth, sessions, and task sync
+- `localStorage` fallback for unsigned users and offline edits
 - ESLint + Prettier for code style
 
 ## License

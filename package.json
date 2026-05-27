@@ -4,9 +4,10 @@
   "description": "A simple, community-maintained open-source task tracker.",
   "private": true,
   "scripts": {
-    "lint": "eslint src/",
+    "lint": "eslint server.js src test",
+    "test": "node --test",
     "format": "prettier --write 'src/**/*.js' 'index.html' 'styles.css'",
-    "start": "python3 -m http.server 8000"
+    "start": "node server.js"
   },
   "devDependencies": {
     "eslint": "^9.0.0",

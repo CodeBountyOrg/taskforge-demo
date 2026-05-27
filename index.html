@@ -18,11 +18,11 @@
   </head>
   <body>
     <header class="app-header">
-      <div class="header-content">
-        <div>
-          <h1>TaskForge</h1>
-          <p class="tagline">A tiny task list that lives in your browser.</p>
-        </div>
+      <div class="header-copy">
+        <h1>TaskForge</h1>
+        <p class="tagline">A tiny task list that lives in your browser.</p>
+      </div>
+      <div class="header-actions">
         <button
           id="theme-toggle"
           class="theme-toggle"
@@ -31,10 +31,21 @@
         >
           Dark mode
         </button>
+        <div class="auth-panel" aria-live="polite">
+          <img id="auth-avatar" class="auth-avatar" hidden />
+          <span id="auth-status" class="auth-status">
+            Tasks are stored on this device.
+          </span>
+          <button id="auth-action" class="auth-action" type="button">
+            Sign in with GitHub
+          </button>
+        </div>
       </div>
     </header>
 
     <main class="app-main">
+      <p id="auth-message" class="auth-message" hidden></p>
+
       <form id="task-form" class="task-form" aria-label="Add a new task">
         <input
           id="task-input"
