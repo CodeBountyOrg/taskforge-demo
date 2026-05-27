@@ -10,12 +10,12 @@ const { SESSION_COOKIE, createServer, sanitizeTasks } = require("../server.js");
 test("sanitizeTasks drops malformed rows and trims persisted fields", () => {
   assert.deepEqual(
     sanitizeTasks([
-      { id: " a ", title: " Write tests ", done: 1, createdAt: 10 },
+      { id: " a ", title: " Write tests ", done: 1, createdAt: 10, assigneeEmail: " Dev@Example.COM " },
       { id: "", title: "missing id" },
       { id: "missing-title", title: "" },
       null,
     ]),
-    [{ id: "a", title: "Write tests", done: true, createdAt: 10 }],
+    [{ id: "a", title: "Write tests", done: true, createdAt: 10, assigneeEmail: "dev@example.com" }],
   );
 });
 
@@ -116,6 +116,7 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
         title: "Ship OAuth",
         done: false,
         createdAt: loaded.body.tasks[0].createdAt,
+        assigneeEmail: "",
       },
     ]);
 
@@ -124,6 +125,65 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
   } finally {
     await close(server);
     restoreEnv("GITHUB_CLIENT_ID", previousClientId);
+  }
+});
+
+
+test("assignment updates are queued into hourly email digests", async () => {
+  const sent = [];
+  const digestStore = new Map();
+  const server = await listen(
+    createServer({
+      dataFile: await tempDataFile(),
+      digestStore,
+      emailSender: { send: async (message) => sent.push(message) },
+      fetchImpl: async (url) => {
+        if (url === "https://github.com/login/oauth/access_token") {
+          return jsonResponse({ access_token: "token" });
+        }
+        return jsonResponse({ id: 7, login: "octo", avatar_url: "" });
+      },
+      now: () => 1000,
+    }),
+  );
+
+  try {
+    const previousClientId = process.env.GITHUB_CLIENT_ID;
+    process.env.GITHUB_CLIENT_ID = "client-id";
+    const login = await request(server, "/api/auth/github/exchange", {
+      method: "POST",
+      body: {
+        code: "code",
+        codeVerifier: "verifier",
+        redirectUri: "http://127.0.0.1:8000/",
+      },
+    });
+    restoreEnv("GITHUB_CLIENT_ID", previousClientId);
+    const cookie = login.headers.get("set-cookie").split(";")[0];
+    const saved = await request(server, "/api/tasks", {
+      method: "PUT",
+      cookie,
+      body: {
+        tasks: [
+          {
+            id: "task-1",
+            title: "Review pull request",
+            done: false,
+            assigneeEmail: "Dev@Example.COM",
+          },
+        ],
+      },
+    });
+
+    assert.equal(saved.status, 200);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, "dev@example.com");
+    assert.match(sent[0].subject, /assignment digest/);
+    assert.match(sent[0].text, /Review pull request/);
+    assert.match(sent[0].text, /Unsubscribe:/);
+    assert.equal(digestStore.get("dev@example.com").assignments.length, 0);
+  } finally {
+    await close(server);
   }
 });
 

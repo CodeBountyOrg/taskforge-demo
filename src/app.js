@@ -9,6 +9,7 @@ import { createTask, toggleTask, removeTask } from "./tasks.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
+const assigneeInput = document.getElementById("assignee-input");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 const authStatus = document.getElementById("auth-status");
@@ -69,6 +70,12 @@ function render() {
     label.className = "task-title";
     label.textContent = task.title;
 
+    const assignee = document.createElement("span");
+    assignee.className = "task-assignee";
+    assignee.textContent = task.assigneeEmail
+      ? `Assigned to ${task.assigneeEmail}`
+      : "Unassigned";
+
     const del = document.createElement("button");
     del.type = "button";
     del.className = "task-delete";
@@ -80,7 +87,7 @@ function render() {
       render();
     });
 
-    li.append(checkbox, label, del);
+    li.append(checkbox, label, assignee, del);
     list.appendChild(li);
   }
 }
@@ -89,9 +96,10 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = input.value.trim();
   if (!title) return;
-  tasks = [createTask(title), ...tasks];
+  tasks = [createTask(title, assigneeInput.value), ...tasks];
   await save(tasks, user);
   input.value = "";
+  assigneeInput.value = "";
   input.focus();
   render();
 });
