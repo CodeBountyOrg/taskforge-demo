@@ -6,6 +6,7 @@ import {
 } from "./auth.js";
 import { load, loadLocal, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
+import { initI18n, t } from "./i18n.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
@@ -15,11 +16,13 @@ const authStatus = document.getElementById("auth-status");
 const authAction = document.getElementById("auth-action");
 const authAvatar = document.getElementById("auth-avatar");
 const authMessage = document.getElementById("auth-message");
+const localeSelect = document.getElementById("locale-select");
 
 let tasks = [];
 let user = null;
 
 async function init() {
+  initI18n(localeSelect, renderAuth);
   const localTasks = loadLocal();
   let completedSignIn = false;
   try {
@@ -73,7 +76,7 @@ function render() {
     del.type = "button";
     del.className = "task-delete";
     del.textContent = "✕";
-    del.setAttribute("aria-label", `Delete task: ${task.title}`);
+    del.setAttribute("aria-label", t("deleteTask", { title: task.title }));
     del.addEventListener("click", async () => {
       tasks = removeTask(tasks, task.id);
       await save(tasks, user);
@@ -120,16 +123,16 @@ function renderAuth() {
     authAvatar.hidden = true;
     authAvatar.removeAttribute("src");
     authAvatar.removeAttribute("alt");
-    authStatus.textContent = "Tasks are stored on this device.";
-    authAction.textContent = "Sign in with GitHub";
+    authStatus.textContent = t("localStorage");
+    authAction.textContent = t("signIn");
     return;
   }
 
   authAvatar.hidden = false;
   authAvatar.src = user.avatarUrl;
   authAvatar.alt = `${user.login}'s avatar`;
-  authStatus.textContent = `Signed in as ${user.login}`;
-  authAction.textContent = "Logout";
+  authStatus.textContent = t("signedInAs", { login: user.login });
+  authAction.textContent = t("logout");
   setAuthMessage("");
 }
 

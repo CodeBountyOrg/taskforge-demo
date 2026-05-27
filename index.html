@@ -9,10 +9,19 @@
   <body>
     <header class="app-header">
       <div class="header-copy">
-        <h1>TaskForge</h1>
-        <p class="tagline">A tiny task list that lives in your browser.</p>
+        <h1 data-i18n="title">TaskForge</h1>
+        <p class="tagline" data-i18n="tagline">
+          A tiny task list that lives in your browser.
+        </p>
       </div>
       <div class="auth-panel" aria-live="polite">
+        <label class="locale-control">
+          <span data-i18n="language">Language</span>
+          <select id="locale-select" name="locale">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+          </select>
+        </label>
         <img id="auth-avatar" class="auth-avatar" hidden />
         <span id="auth-status" class="auth-status">
           Tasks are stored on this device.
@@ -32,22 +41,23 @@
           type="text"
           name="title"
           placeholder="What needs doing?"
+          data-i18n-placeholder="taskPlaceholder"
           autocomplete="off"
           required
         />
-        <button type="submit">Add</button>
+        <button type="submit" data-i18n="add">Add</button>
       </form>
 
       <ul id="task-list" class="task-list" aria-live="polite"></ul>
 
       <p id="empty-state" class="empty-state" hidden>
-        No tasks yet. Add one above to get started.
+        <span data-i18n="emptyState">No tasks yet. Add one above to get started.</span>
       </p>
     </main>
 
     <footer class="app-footer">
       <a href="https://github.com/CodeBountyOrg/taskforge-demo">
-        github.com/CodeBountyOrg/taskforge-demo
+        <span data-i18n="githubLink">github.com/CodeBountyOrg/taskforge-demo</span>
       </a>
     </footer>
 
