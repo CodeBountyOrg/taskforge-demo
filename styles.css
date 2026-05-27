@@ -6,7 +6,29 @@
   --accent: #0969da;
   --accent-fg: #ffffff;
   --done: #8c959f;
+  --message-bg: #fff8c5;
+  --message-border: #d4a72c;
+  --message-fg: #7d4e00;
+  --danger: #cf222e;
+  --danger-bg: rgba(207, 34, 46, 0.08);
   --radius: 6px;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --border: #30363d;
+  --accent: #2f81f7;
+  --accent-fg: #ffffff;
+  --done: #6e7681;
+  --message-bg: #332701;
+  --message-border: #9e6a03;
+  --message-fg: #f0c36a;
+  --danger: #ff7b72;
+  --danger-bg: rgba(248, 81, 73, 0.14);
+  color-scheme: dark;
 }
 
 * {
@@ -80,6 +102,21 @@ body {
   opacity: 0.7;
 }
 
+.theme-toggle {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+}
+
 .app-main {
   max-width: 36rem;
   margin: 0 auto;
@@ -89,9 +126,9 @@ body {
 .auth-message {
   margin: 0 0 1rem;
   padding: 0.6rem 0.75rem;
-  color: #7d4e00;
-  background: #fff8c5;
-  border: 1px solid #d4a72c;
+  color: var(--message-fg);
+  background: var(--message-bg);
+  border: 1px solid var(--message-border);
   border-radius: var(--radius);
 }
 
@@ -171,8 +208,8 @@ body {
 }
 
 .task-delete:hover {
-  color: #cf222e;
-  background: rgba(207, 34, 46, 0.08);
+  color: var(--danger);
+  background: var(--danger-bg);
 }
 
 .empty-state {
