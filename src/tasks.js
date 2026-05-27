@@ -1,7 +1,8 @@
-export function createTask(title) {
+export function createTask(title, description = "") {
   return {
     id: cryptoRandomId(),
     title: title.trim(),
+    description: description.trim(),
     done: false,
     createdAt: Date.now(),
   };

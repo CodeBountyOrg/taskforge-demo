@@ -10,12 +10,26 @@ const { SESSION_COOKIE, createServer, sanitizeTasks } = require("../server.js");
 test("sanitizeTasks drops malformed rows and trims persisted fields", () => {
   assert.deepEqual(
     sanitizeTasks([
-      { id: " a ", title: " Write tests ", done: 1, createdAt: 10 },
+      {
+        id: " a ",
+        title: " Write tests ",
+        description: " **with markdown** ",
+        done: 1,
+        createdAt: 10,
+      },
       { id: "", title: "missing id" },
       { id: "missing-title", title: "" },
       null,
     ]),
-    [{ id: "a", title: "Write tests", done: true, createdAt: 10 }],
+    [
+      {
+        id: "a",
+        title: "Write tests",
+        description: "**with markdown**",
+        done: true,
+        createdAt: 10,
+      },
+    ],
   );
 });
 
@@ -104,7 +118,14 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
       method: "PUT",
       cookie,
       body: {
-        tasks: [{ id: "task-1", title: "Ship OAuth", done: false }],
+        tasks: [
+          {
+            id: "task-1",
+            title: "Ship OAuth",
+            description: "Document **login** flow",
+            done: false,
+          },
+        ],
       },
     });
     assert.equal(saved.status, 200);
@@ -114,6 +135,7 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
       {
         id: "task-1",
         title: "Ship OAuth",
+        description: "Document **login** flow",
         done: false,
         createdAt: loaded.body.tasks[0].createdAt,
       },
