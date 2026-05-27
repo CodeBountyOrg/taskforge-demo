@@ -209,3 +209,25 @@ body {
     max-width: none;
   }
 }
+
+.task-assignee {
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 36rem) {
+  .task-form {
+    flex-direction: column;
+  }
+
+  .task-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .task-title,
+  .task-assignee {
+    flex-basis: 100%;
+  }
+}

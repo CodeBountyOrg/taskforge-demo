@@ -11,6 +11,7 @@ const DATA_FILE =
   process.env.TASKFORGE_DATA_FILE || path.join(__dirname, ".taskforge-data.json");
 const SESSION_COOKIE = "taskforge_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+const EMAIL_DIGEST_INTERVAL_MS = 60 * 60 * 1000;
 
 const CONTENT_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -21,16 +22,27 @@ const CONTENT_TYPES = {
 };
 
 const sessions = new Map();
+const pendingAssignmentDigests = new Map();
 
 function createServer(options = {}) {
   const dataFile = options.dataFile || DATA_FILE;
   const fetchImpl = options.fetchImpl || global.fetch;
   const sessionStore = options.sessionStore || sessions;
+  const emailSender = options.emailSender || createEmailSender();
+  const digestStore = options.digestStore || pendingAssignmentDigests;
+  const now = options.now || (() => Date.now());
 
   return http.createServer(async (req, res) => {
     try {
       if (req.url.startsWith("/api/")) {
-        await handleApi(req, res, { dataFile, fetchImpl, sessionStore });
+        await handleApi(req, res, {
+          dataFile,
+          digestStore,
+          emailSender,
+          fetchImpl,
+          now,
+          sessionStore,
+        });
         return;
       }
       await serveStatic(req, res);
@@ -160,7 +172,7 @@ async function exchangeGitHubCode(req, res, { fetchImpl, sessionStore }) {
   sendJson(res, 200, { user });
 }
 
-async function handleTasks(req, res, { dataFile, sessionStore }) {
+async function handleTasks(req, res, { dataFile, digestStore, emailSender, now, sessionStore }) {
   const session = getSession(req, sessionStore);
   if (!session) {
     sendJson(res, 401, { error: "authentication_required" });
@@ -177,8 +189,16 @@ async function handleTasks(req, res, { dataFile, sessionStore }) {
     const body = await readJson(req);
     const tasks = sanitizeTasks(body.tasks);
     const data = await readData(dataFile);
+    const previousTasks = data.tasksByUser[session.user.id] || [];
     data.tasksByUser[session.user.id] = tasks;
+    const assignments = collectNewAssignments(
+      previousTasks,
+      tasks,
+      session.user,
+      now(),
+    );
     await writeData(dataFile, data);
+    await queueAssignmentDigests(assignments, { digestStore, emailSender, now });
     sendJson(res, 200, { tasks });
     return;
   }
@@ -254,6 +274,86 @@ async function readJson(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+function collectNewAssignments(previousTasks, nextTasks, actor, now) {
+  const previousById = new Map(previousTasks.map((task) => [task.id, task]));
+  const assignments = [];
+  for (const task of nextTasks) {
+    const previous = previousById.get(task.id);
+    const assignee = task.assigneeEmail;
+    if (!assignee || previous?.assigneeEmail === assignee) continue;
+    assignments.push({
+      actor: actor.login,
+      assigneeEmail: assignee,
+      taskTitle: task.title,
+      taskId: task.id,
+      assignedAt: now,
+    });
+  }
+  return assignments;
+}
+
+async function queueAssignmentDigests(assignments, { digestStore, emailSender, now }) {
+  for (const assignment of assignments) {
+    if (isUnsubscribed(digestStore, assignment.assigneeEmail)) continue;
+    const digest = digestStore.get(assignment.assigneeEmail) || {
+      assignments: [],
+      lastSentAt: 0,
+      unsubscribeToken: crypto.randomBytes(16).toString("hex"),
+    };
+    digest.assignments.push(assignment);
+    digestStore.set(assignment.assigneeEmail, digest);
+  }
+  await sendDueDigests(digestStore, emailSender, now());
+}
+
+async function sendDueDigests(digestStore, emailSender, now) {
+  if (!emailSender) return;
+  for (const [email, digest] of digestStore) {
+    if (digest.unsubscribed || digest.assignments.length === 0) continue;
+    if (digest.lastSentAt && now - digest.lastSentAt < EMAIL_DIGEST_INTERVAL_MS) {
+      continue;
+    }
+    await emailSender.send({
+      to: email,
+      subject: `TaskForge assignment digest (${digest.assignments.length})`,
+      text: buildAssignmentDigestText(digest),
+    });
+    digest.assignments = [];
+    digest.lastSentAt = now;
+  }
+}
+
+function buildAssignmentDigestText(digest) {
+  const lines = [
+    "You have new TaskForge assignments:",
+    "",
+    ...digest.assignments.map(
+      (assignment) => `- ${assignment.taskTitle} (assigned by ${assignment.actor})`,
+    ),
+    "",
+    `Unsubscribe: /api/notifications/unsubscribe?token=${digest.unsubscribeToken}`,
+  ];
+  return lines.join("\n");
+}
+
+function isUnsubscribed(digestStore, email) {
+  return Boolean(digestStore.get(email)?.unsubscribed);
+}
+
+function createEmailSender() {
+  const provider = process.env.TASKFORGE_EMAIL_PROVIDER;
+  if (!provider) return null;
+  return {
+    async send(message) {
+      if (provider === "log") {
+        console.log("TaskForge email digest", message);
+        return;
+      }
+      throw new Error(`Unsupported email provider: ${provider}`);
+    },
+  };
+}
+
 function sanitizeTasks(tasks) {
   if (!Array.isArray(tasks)) return [];
   return tasks
@@ -263,8 +363,14 @@ function sanitizeTasks(tasks) {
       title: normalizeString(task.title).slice(0, 500),
       done: Boolean(task.done),
       createdAt: Number.isFinite(task.createdAt) ? task.createdAt : Date.now(),
+      assigneeEmail: normalizeEmail(task.assigneeEmail),
     }))
     .filter((task) => task.id && task.title);
+}
+
+function normalizeEmail(value) {
+  const email = normalizeString(value).toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email.slice(0, 254) : "";
 }
 
 function normalizeString(value) {
@@ -319,6 +425,9 @@ if (require.main === module) {
 
 module.exports = {
   SESSION_COOKIE,
+  buildAssignmentDigestText,
+  collectNewAssignments,
   createServer,
+  queueAssignmentDigests,
   sanitizeTasks,
 };
