@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TaskForge — open-source task tracker</title>
+    <script>
+      (() => {
+        const saved = window.localStorage.getItem("taskforge.theme");
+        if (saved === "dark" || saved === "light") {
+          document.documentElement.dataset.theme = saved;
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -12,7 +20,16 @@
         <h1>TaskForge</h1>
         <p class="tagline">A tiny task list that lives in your browser.</p>
       </div>
-      <div class="auth-panel" aria-live="polite">
+      <div class="header-actions">
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          Dark theme
+        </button>
+        <div class="auth-panel" aria-live="polite">
         <img id="auth-avatar" class="auth-avatar" hidden />
         <span id="auth-status" class="auth-status">
           Tasks are stored on this device.
@@ -20,6 +37,7 @@
         <button id="auth-action" class="auth-action" type="button">
           Sign in with GitHub
         </button>
+        </div>
       </div>
     </header>
 
