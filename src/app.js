@@ -6,6 +6,7 @@ import {
 } from "./auth.js";
 import { load, loadLocal, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
+import { initTheme } from "./theme.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
@@ -15,11 +16,13 @@ const authStatus = document.getElementById("auth-status");
 const authAction = document.getElementById("auth-action");
 const authAvatar = document.getElementById("auth-avatar");
 const authMessage = document.getElementById("auth-message");
+const themeToggle = document.getElementById("theme-toggle");
 
 let tasks = [];
 let user = null;
 
 async function init() {
+  initTheme(themeToggle);
   const localTasks = loadLocal();
   let completedSignIn = false;
   try {
