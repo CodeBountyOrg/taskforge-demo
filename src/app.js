@@ -15,11 +15,14 @@ const authStatus = document.getElementById("auth-status");
 const authAction = document.getElementById("auth-action");
 const authAvatar = document.getElementById("auth-avatar");
 const authMessage = document.getElementById("auth-message");
+const themeToggle = document.getElementById("theme-toggle");
+const THEME_KEY = "taskforge.theme";
 
 let tasks = [];
 let user = null;
 
 async function init() {
+  initTheme();
   const localTasks = loadLocal();
   let completedSignIn = false;
   try {
@@ -96,6 +99,11 @@ form.addEventListener("submit", async (e) => {
   render();
 });
 
+themeToggle.addEventListener("click", () => {
+  const nextTheme = currentTheme() === "dark" ? "light" : "dark";
+  applyTheme(nextTheme, true);
+});
+
 authAction.addEventListener("click", async () => {
   authAction.disabled = true;
   try {
@@ -147,3 +155,30 @@ function mergeTasks(localTasks, remoteTasks) {
 }
 
 init();
+
+function initTheme() {
+  const saved = window.localStorage.getItem(THEME_KEY);
+  if (saved === "dark" || saved === "light") {
+    applyTheme(saved, false);
+    return;
+  }
+  applyTheme(preferredTheme(), false);
+}
+
+function preferredTheme() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function currentTheme() {
+  return document.documentElement.dataset.theme || preferredTheme();
+}
+
+function applyTheme(theme, persist) {
+  document.documentElement.dataset.theme = theme;
+  if (persist) window.localStorage.setItem(THEME_KEY, theme);
+  const dark = theme === "dark";
+  themeToggle.setAttribute("aria-pressed", String(dark));
+  themeToggle.textContent = dark ? "Light theme" : "Dark theme";
+}
