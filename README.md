@@ -26,6 +26,18 @@ GitHub sign-in is enabled when `GITHUB_CLIENT_ID` is set. If your OAuth app
 requires it, set `GITHUB_CLIENT_SECRET` on the server too; the secret is only
 used by the backend token exchange endpoint.
 
+Assignment notification digests can be enabled with Resend:
+
+```sh
+TASKFORGE_EMAIL_PROVIDER=resend
+TASKFORGE_EMAIL_FROM="TaskForge <notifications@example.com>"
+RESEND_API_KEY="..."
+TASKFORGE_PUBLIC_URL="https://your-taskforge-host.example"
+```
+
+For local development, set `TASKFORGE_EMAIL_PROVIDER=log` to print due digest
+messages instead of sending them.
+
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) — TL;DR:

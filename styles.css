@@ -97,6 +97,7 @@ body {
 
 .task-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
 }
@@ -159,6 +160,13 @@ body {
   word-break: break-word;
 }
 
+.task-assignee {
+  color: var(--muted);
+  flex: 0 1 12rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
 .task-delete {
   appearance: none;
   background: transparent;
@@ -207,5 +215,20 @@ body {
   .auth-status {
     flex: 1;
     max-width: none;
+  }
+
+  .task-form input,
+  .task-form button {
+    width: 100%;
+  }
+
+  .task-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .task-title,
+  .task-assignee {
+    flex-basis: 100%;
   }
 }

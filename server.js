@@ -11,6 +11,11 @@ const DATA_FILE =
   process.env.TASKFORGE_DATA_FILE || path.join(__dirname, ".taskforge-data.json");
 const SESSION_COOKIE = "taskforge_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+const ASSIGNMENT_DIGEST_INTERVAL_MS =
+  Number(process.env.TASKFORGE_ASSIGNMENT_DIGEST_INTERVAL_MS) || 60 * 60 * 1000;
+const DIGEST_POLL_INTERVAL_MS =
+  Number(process.env.TASKFORGE_DIGEST_POLL_INTERVAL_MS) || 60 * 1000;
+const PUBLIC_URL = process.env.TASKFORGE_PUBLIC_URL || `http://${HOST}:${PORT}`;
 
 const CONTENT_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -26,11 +31,26 @@ function createServer(options = {}) {
   const dataFile = options.dataFile || DATA_FILE;
   const fetchImpl = options.fetchImpl || global.fetch;
   const sessionStore = options.sessionStore || sessions;
+  const now = options.now || (() => Date.now());
+  const digestIntervalMs =
+    options.digestIntervalMs || ASSIGNMENT_DIGEST_INTERVAL_MS;
+  const publicUrl = options.publicUrl || PUBLIC_URL;
+  const emailSender =
+    "emailSender" in options ? options.emailSender : createEmailSender(fetchImpl);
+  const context = {
+    dataFile,
+    digestIntervalMs,
+    emailSender,
+    fetchImpl,
+    now,
+    publicUrl,
+    sessionStore,
+  };
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     try {
       if (req.url.startsWith("/api/")) {
-        await handleApi(req, res, { dataFile, fetchImpl, sessionStore });
+        await handleApi(req, res, context);
         return;
       }
       await serveStatic(req, res);
@@ -39,6 +59,21 @@ function createServer(options = {}) {
       sendJson(res, 500, { error: "internal_server_error" });
     }
   });
+
+  if (emailSender && options.startDigestTimer !== false) {
+    const pollIntervalMs = options.digestPollIntervalMs || DIGEST_POLL_INTERVAL_MS;
+    const timer = setInterval(() => {
+      flushDueAssignmentDigests(dataFile, {
+        emailSender,
+        now,
+        publicUrl,
+      }).catch((error) => console.error("assignment digest delivery failed", error));
+    }, pollIntervalMs);
+    timer.unref?.();
+    server.on("close", () => clearInterval(timer));
+  }
+
+  return server;
 }
 
 async function handleApi(req, res, context) {
@@ -69,6 +104,11 @@ async function handleApi(req, res, context) {
     if (sessionId) context.sessionStore.delete(sessionId);
     setSessionCookie(res, "", 0);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (url.pathname === "/api/notifications/unsubscribe") {
+    await unsubscribeFromAssignmentDigests(req, res, context, url);
     return;
   }
 
@@ -160,7 +200,8 @@ async function exchangeGitHubCode(req, res, { fetchImpl, sessionStore }) {
   sendJson(res, 200, { user });
 }
 
-async function handleTasks(req, res, { dataFile, sessionStore }) {
+async function handleTasks(req, res, context) {
+  const { dataFile, sessionStore } = context;
   const session = getSession(req, sessionStore);
   if (!session) {
     sendJson(res, 401, { error: "authentication_required" });
@@ -177,13 +218,60 @@ async function handleTasks(req, res, { dataFile, sessionStore }) {
     const body = await readJson(req);
     const tasks = sanitizeTasks(body.tasks);
     const data = await readData(dataFile);
+    const previousTasks = data.tasksByUser[session.user.id] || [];
+    const assignedAt = context.now();
+    const assignments = collectNewAssignments(
+      previousTasks,
+      tasks,
+      session.user,
+      assignedAt,
+    );
     data.tasksByUser[session.user.id] = tasks;
+    queueAssignmentDigests(data, assignments, {
+      digestIntervalMs: context.digestIntervalMs,
+      now: assignedAt,
+    });
     await writeData(dataFile, data);
+    if (context.emailSender) {
+      await flushDueAssignmentDigests(dataFile, context);
+    }
     sendJson(res, 200, { tasks });
     return;
   }
 
   sendJson(res, 405, { error: "method_not_allowed" });
+}
+
+async function unsubscribeFromAssignmentDigests(req, res, { dataFile }, url) {
+  if (req.method !== "GET") {
+    sendJson(res, 405, { error: "method_not_allowed" });
+    return;
+  }
+
+  const token = normalizeString(url.searchParams.get("token"));
+  if (!token) {
+    sendText(res, 400, "Missing unsubscribe token.");
+    return;
+  }
+
+  const data = await readData(dataFile);
+  const entry = Object.entries(data.assignmentDigests).find(
+    ([, digest]) => digest.unsubscribeToken === token,
+  );
+  if (!entry) {
+    sendText(res, 404, "Notification subscription not found.");
+    return;
+  }
+
+  const [email, digest] = entry;
+  data.assignmentDigests[email] = {
+    ...digest,
+    assignments: [],
+    scheduledFor: 0,
+    unsubscribed: true,
+  };
+  await writeData(dataFile, data);
+  sendText(res, 200, "You have been unsubscribed from TaskForge assignment digests.");
 }
 
 async function serveStatic(req, res) {
@@ -232,13 +320,22 @@ async function serveStatic(req, res) {
 async function readData(dataFile) {
   try {
     const parsed = JSON.parse(await fs.readFile(dataFile, "utf8"));
-    if (parsed && typeof parsed === "object" && parsed.tasksByUser) {
+    if (parsed && typeof parsed === "object") {
+      if (!parsed.tasksByUser || typeof parsed.tasksByUser !== "object") {
+        parsed.tasksByUser = {};
+      }
+      if (
+        !parsed.assignmentDigests ||
+        typeof parsed.assignmentDigests !== "object"
+      ) {
+        parsed.assignmentDigests = {};
+      }
       return parsed;
     }
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
-  return { tasksByUser: {} };
+  return { assignmentDigests: {}, tasksByUser: {} };
 }
 
 async function writeData(dataFile, data) {
@@ -254,6 +351,174 @@ async function readJson(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+function collectNewAssignments(previousTasks, nextTasks, actor, assignedAt) {
+  const previousById = new Map(previousTasks.map((task) => [task.id, task]));
+  const assignments = [];
+
+  for (const task of nextTasks) {
+    const assigneeEmail = normalizeEmail(task.assigneeEmail);
+    if (!assigneeEmail) continue;
+
+    const previous = previousById.get(task.id);
+    if (previous?.assigneeEmail === assigneeEmail) continue;
+
+    assignments.push({
+      assignedAt,
+      assignedBy: actor.login,
+      assigneeEmail,
+      taskId: task.id,
+      taskTitle: task.title,
+    });
+  }
+
+  return assignments;
+}
+
+function queueAssignmentDigests(data, assignments, { digestIntervalMs, now }) {
+  if (assignments.length === 0) return;
+
+  for (const assignment of assignments) {
+    const email = assignment.assigneeEmail;
+    const digest = data.assignmentDigests[email] || {
+      assignments: [],
+      lastSentAt: 0,
+      scheduledFor: 0,
+      unsubscribeToken: crypto.randomBytes(18).toString("base64url"),
+      unsubscribed: false,
+    };
+
+    if (digest.unsubscribed) continue;
+
+    digest.assignments = Array.isArray(digest.assignments)
+      ? digest.assignments
+      : [];
+    digest.assignments.push(assignment);
+    if (!Number.isFinite(digest.scheduledFor) || digest.scheduledFor <= 0) {
+      digest.scheduledFor = now + digestIntervalMs;
+    }
+    data.assignmentDigests[email] = digest;
+  }
+}
+
+async function flushDueAssignmentDigests(dataFile, { emailSender, now, publicUrl }) {
+  if (!emailSender) return { sent: 0 };
+
+  const data = await readData(dataFile);
+  const result = await sendDueAssignmentDigests(data, {
+    emailSender,
+    now: now(),
+    publicUrl,
+  });
+  if (result.changed) {
+    await writeData(dataFile, data);
+  }
+  return { sent: result.sent };
+}
+
+async function sendDueAssignmentDigests(data, { emailSender, now, publicUrl }) {
+  let changed = false;
+  let sent = 0;
+
+  for (const [email, digest] of Object.entries(data.assignmentDigests)) {
+    if (!digest || digest.unsubscribed) continue;
+
+    const assignments = Array.isArray(digest.assignments)
+      ? digest.assignments
+      : [];
+    if (assignments.length === 0) {
+      if (digest.scheduledFor) {
+        digest.scheduledFor = 0;
+        changed = true;
+      }
+      continue;
+    }
+    if (Number(digest.scheduledFor || 0) > now) continue;
+
+    await emailSender.send({
+      subject: `TaskForge assignment digest (${assignments.length})`,
+      text: buildAssignmentDigestText(email, digest, { publicUrl }),
+      to: email,
+    });
+    digest.assignments = [];
+    digest.lastSentAt = now;
+    digest.scheduledFor = 0;
+    changed = true;
+    sent += 1;
+  }
+
+  return { changed, sent };
+}
+
+function buildAssignmentDigestText(email, digest, { publicUrl }) {
+  const unsubscribeUrl = `${normalizeBaseUrl(
+    publicUrl,
+  )}/api/notifications/unsubscribe?token=${encodeURIComponent(
+    digest.unsubscribeToken,
+  )}`;
+  const lines = [
+    "You have new TaskForge task assignments:",
+    "",
+    ...digest.assignments.map(
+      (assignment) =>
+        `- ${assignment.taskTitle} (assigned by ${assignment.assignedBy})`,
+    ),
+    "",
+    `This digest was sent to ${email}.`,
+    `Unsubscribe: ${unsubscribeUrl}`,
+  ];
+  return lines.join("\n");
+}
+
+function createEmailSender(fetchImpl) {
+  const provider = normalizeString(process.env.TASKFORGE_EMAIL_PROVIDER);
+  if (!provider) return null;
+
+  if (provider === "log") {
+    return {
+      async send(message) {
+        console.log("TaskForge assignment digest", message);
+      },
+    };
+  }
+
+  if (provider === "resend") {
+    return {
+      async send(message) {
+        if (!process.env.RESEND_API_KEY) {
+          throw new Error("RESEND_API_KEY is required for Resend email delivery");
+        }
+        if (!process.env.TASKFORGE_EMAIL_FROM) {
+          throw new Error("TASKFORGE_EMAIL_FROM is required for email delivery");
+        }
+        if (typeof fetchImpl !== "function") {
+          throw new Error("fetch is required for Resend email delivery");
+        }
+
+        const response = await fetchImpl("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            from: process.env.TASKFORGE_EMAIL_FROM,
+            subject: message.subject,
+            text: message.text,
+            to: message.to,
+          }),
+        });
+        if (!response.ok) {
+          const detail =
+            typeof response.text === "function" ? await response.text() : "";
+          throw new Error(`Resend email delivery failed: ${detail}`);
+        }
+      },
+    };
+  }
+
+  throw new Error(`Unsupported email provider: ${provider}`);
+}
+
 function sanitizeTasks(tasks) {
   if (!Array.isArray(tasks)) return [];
   return tasks
@@ -263,8 +528,18 @@ function sanitizeTasks(tasks) {
       title: normalizeString(task.title).slice(0, 500),
       done: Boolean(task.done),
       createdAt: Number.isFinite(task.createdAt) ? task.createdAt : Date.now(),
+      assigneeEmail: normalizeEmail(task.assigneeEmail),
     }))
     .filter((task) => task.id && task.title);
+}
+
+function normalizeEmail(value) {
+  const email = normalizeString(value).toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email.slice(0, 254) : "";
+}
+
+function normalizeBaseUrl(value) {
+  return normalizeString(value).replace(/\/+$/, "") || "http://localhost:8000";
 }
 
 function normalizeString(value) {
@@ -319,6 +594,10 @@ if (require.main === module) {
 
 module.exports = {
   SESSION_COOKIE,
+  buildAssignmentDigestText,
+  collectNewAssignments,
   createServer,
+  flushDueAssignmentDigests,
+  queueAssignmentDigests,
   sanitizeTasks,
 };

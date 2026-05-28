@@ -5,17 +5,36 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { SESSION_COOKIE, createServer, sanitizeTasks } = require("../server.js");
+const {
+  SESSION_COOKIE,
+  createServer,
+  flushDueAssignmentDigests,
+  sanitizeTasks,
+} = require("../server.js");
 
 test("sanitizeTasks drops malformed rows and trims persisted fields", () => {
   assert.deepEqual(
     sanitizeTasks([
-      { id: " a ", title: " Write tests ", done: 1, createdAt: 10 },
+      {
+        assigneeEmail: " Dev@Example.COM ",
+        id: " a ",
+        title: " Write tests ",
+        done: 1,
+        createdAt: 10,
+      },
       { id: "", title: "missing id" },
       { id: "missing-title", title: "" },
       null,
     ]),
-    [{ id: "a", title: "Write tests", done: true, createdAt: 10 }],
+    [
+      {
+        assigneeEmail: "dev@example.com",
+        id: "a",
+        title: "Write tests",
+        done: true,
+        createdAt: 10,
+      },
+    ],
   );
 });
 
@@ -116,6 +135,7 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
         title: "Ship OAuth",
         done: false,
         createdAt: loaded.body.tasks[0].createdAt,
+        assigneeEmail: "",
       },
     ]);
 
@@ -124,6 +144,152 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
   } finally {
     await close(server);
     restoreEnv("GITHUB_CLIENT_ID", previousClientId);
+  }
+});
+
+test("assignment updates are queued into delayed email digests", async () => {
+  const previousClientId = process.env.GITHUB_CLIENT_ID;
+  process.env.GITHUB_CLIENT_ID = "client-id";
+  const dataFile = await tempDataFile();
+  const sent = [];
+  let now = 1000;
+  const server = await listen(
+    createServer({
+      dataFile,
+      digestIntervalMs: 60 * 60 * 1000,
+      emailSender: { send: async (message) => sent.push(message) },
+      fetchImpl: async (url) => {
+        if (url === "https://github.com/login/oauth/access_token") {
+          return jsonResponse({ access_token: "token" });
+        }
+        return jsonResponse({ id: 7, login: "octo", avatar_url: "" });
+      },
+      now: () => now,
+      publicUrl: "https://taskforge.example",
+      startDigestTimer: false,
+    }),
+  );
+
+  try {
+    const login = await request(server, "/api/auth/github/exchange", {
+      method: "POST",
+      body: {
+        code: "code",
+        codeVerifier: "verifier",
+        redirectUri: "http://127.0.0.1:8000/",
+      },
+    });
+    const cookie = login.headers.get("set-cookie").split(";")[0];
+
+    const saved = await request(server, "/api/tasks", {
+      method: "PUT",
+      cookie,
+      body: {
+        tasks: [
+          {
+            assigneeEmail: "Dev@Example.COM",
+            id: "task-1",
+            title: "Review pull request",
+            done: false,
+          },
+        ],
+      },
+    });
+
+    assert.equal(saved.status, 200);
+    assert.equal(sent.length, 0);
+
+    const queued = JSON.parse(await fs.readFile(dataFile, "utf8"));
+    assert.equal(
+      queued.assignmentDigests["dev@example.com"].scheduledFor,
+      now + 60 * 60 * 1000,
+    );
+    assert.equal(
+      queued.assignmentDigests["dev@example.com"].assignments[0].taskTitle,
+      "Review pull request",
+    );
+
+    now += 60 * 60 * 1000;
+    const delivery = await flushDueAssignmentDigests(dataFile, {
+      emailSender: { send: async (message) => sent.push(message) },
+      now: () => now,
+      publicUrl: "https://taskforge.example",
+    });
+
+    assert.deepEqual(delivery, { sent: 1 });
+    assert.equal(sent[0].to, "dev@example.com");
+    assert.match(sent[0].subject, /assignment digest/);
+    assert.match(sent[0].text, /Review pull request/);
+    assert.match(
+      sent[0].text,
+      /https:\/\/taskforge\.example\/api\/notifications\/unsubscribe\?token=/,
+    );
+
+    const delivered = JSON.parse(await fs.readFile(dataFile, "utf8"));
+    assert.deepEqual(
+      delivered.assignmentDigests["dev@example.com"].assignments,
+      [],
+    );
+  } finally {
+    await close(server);
+    restoreEnv("GITHUB_CLIENT_ID", previousClientId);
+  }
+});
+
+test("unsubscribe endpoint disables pending assignment digests", async () => {
+  const dataFile = await tempDataFile();
+  await fs.writeFile(
+    dataFile,
+    JSON.stringify({
+      assignmentDigests: {
+        "dev@example.com": {
+          assignments: [
+            {
+              assignedAt: 1000,
+              assignedBy: "octo",
+              assigneeEmail: "dev@example.com",
+              taskId: "task-1",
+              taskTitle: "Review pull request",
+            },
+          ],
+          lastSentAt: 0,
+          scheduledFor: 1000,
+          unsubscribeToken: "token-123",
+          unsubscribed: false,
+        },
+      },
+      tasksByUser: {},
+    }),
+  );
+  const sent = [];
+  const server = await listen(
+    createServer({
+      dataFile,
+      emailSender: { send: async (message) => sent.push(message) },
+      now: () => 2000,
+      startDigestTimer: false,
+    }),
+  );
+
+  try {
+    const response = await request(
+      server,
+      "/api/notifications/unsubscribe?token=token-123",
+    );
+    assert.equal(response.status, 200);
+
+    await flushDueAssignmentDigests(dataFile, {
+      emailSender: { send: async (message) => sent.push(message) },
+      now: () => 2000,
+      publicUrl: "https://taskforge.example",
+    });
+
+    const data = JSON.parse(await fs.readFile(dataFile, "utf8"));
+    assert.equal(data.assignmentDigests["dev@example.com"].unsubscribed, true);
+    assert.deepEqual(data.assignmentDigests["dev@example.com"].assignments, []);
+    assert.equal(sent.length, 0);
+  } finally {
+    await close(server);
   }
 });
 
@@ -202,8 +368,10 @@ async function request(server, pathname, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const text = await response.text();
+  const contentType = response.headers.get("content-type") || "";
   return {
-    body: text ? JSON.parse(text) : null,
+    body:
+      text && contentType.includes("application/json") ? JSON.parse(text) : text,
     headers: response.headers,
     status: response.status,
   };
