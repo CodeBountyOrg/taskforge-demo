@@ -3,7 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>TaskForge — open-source task tracker</title>
+    <script>
+      (() => {
+        const storageKey = "taskforge.theme";
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        let theme = prefersDark ? "dark" : "light";
+        try {
+          const savedTheme = localStorage.getItem(storageKey);
+          if (savedTheme === "dark" || savedTheme === "light") {
+            theme = savedTheme;
+          }
+        } catch {
+          // localStorage may be unavailable in privacy-restricted contexts.
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -12,14 +31,24 @@
         <h1>TaskForge</h1>
         <p class="tagline">A tiny task list that lives in your browser.</p>
       </div>
-      <div class="auth-panel" aria-live="polite">
-        <img id="auth-avatar" class="auth-avatar" hidden />
-        <span id="auth-status" class="auth-status">
-          Tasks are stored on this device.
-        </span>
-        <button id="auth-action" class="auth-action" type="button">
-          Sign in with GitHub
+      <div class="header-actions">
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          Dark mode
         </button>
+        <div class="auth-panel" aria-live="polite">
+          <img id="auth-avatar" class="auth-avatar" hidden />
+          <span id="auth-status" class="auth-status">
+            Tasks are stored on this device.
+          </span>
+          <button id="auth-action" class="auth-action" type="button">
+            Sign in with GitHub
+          </button>
+        </div>
       </div>
     </header>
 
