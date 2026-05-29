@@ -15,6 +15,9 @@ const authStatus = document.getElementById("auth-status");
 const authAction = document.getElementById("auth-action");
 const authAvatar = document.getElementById("auth-avatar");
 const authMessage = document.getElementById("auth-message");
+const themeToggle = document.getElementById("theme-toggle");
+const themePreference = window.matchMedia("(prefers-color-scheme: dark)");
+const themeStorageKey = "taskforge.theme";
 
 let tasks = [];
 let user = null;
@@ -114,6 +117,47 @@ authAction.addEventListener("click", async () => {
   }
 });
 
+themeToggle.addEventListener("click", () => {
+  const nextTheme = getTheme() === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+  try {
+    localStorage.setItem(themeStorageKey, nextTheme);
+  } catch {
+    // Keep the toggle usable even when persistence is unavailable.
+  }
+});
+
+themePreference.addEventListener("change", (event) => {
+  if (hasStoredTheme()) return;
+  applyTheme(event.matches ? "dark" : "light");
+});
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  renderThemeToggle();
+}
+
+function getTheme() {
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+}
+
+function hasStoredTheme() {
+  try {
+    const savedTheme = localStorage.getItem(themeStorageKey);
+    return savedTheme === "dark" || savedTheme === "light";
+  } catch {
+    return false;
+  }
+}
+
+function renderThemeToggle() {
+  const isDark = getTheme() === "dark";
+  const nextTheme = isDark ? "light" : "dark";
+  themeToggle.textContent = isDark ? "Light mode" : "Dark mode";
+  themeToggle.setAttribute("aria-pressed", String(isDark));
+  themeToggle.setAttribute("aria-label", `Switch to ${nextTheme} theme`);
+}
+
 function renderAuth() {
   authAction.disabled = false;
   if (!user) {
@@ -146,4 +190,5 @@ function mergeTasks(localTasks, remoteTasks) {
   return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+renderThemeToggle();
 init();
