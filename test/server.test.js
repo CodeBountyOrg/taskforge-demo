@@ -15,7 +15,15 @@ test("sanitizeTasks drops malformed rows and trims persisted fields", () => {
       { id: "missing-title", title: "" },
       null,
     ]),
-    [{ id: "a", title: "Write tests", done: true, createdAt: 10 }],
+    [
+      {
+        id: "a",
+        title: "Write tests",
+        description: "",
+        done: true,
+        createdAt: 10,
+      },
+    ],
   );
 });
 
@@ -114,6 +122,7 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
       {
         id: "task-1",
         title: "Ship OAuth",
+        description: "",
         done: false,
         createdAt: loaded.body.tasks[0].createdAt,
       },

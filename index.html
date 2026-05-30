@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -27,14 +27,22 @@
       <p id="auth-message" class="auth-message" hidden></p>
 
       <form id="task-form" class="task-form" aria-label="Add a new task">
-        <input
-          id="task-input"
-          type="text"
-          name="title"
-          placeholder="What needs doing?"
-          autocomplete="off"
-          required
-        />
+        <div class="task-fields">
+          <input
+            id="task-input"
+            type="text"
+            name="title"
+            placeholder="What needs doing?"
+            autocomplete="off"
+            required
+          />
+          <textarea
+            id="task-description"
+            name="description"
+            placeholder="Optional description with markdown"
+            rows="3"
+          ></textarea>
+        </div>
         <button type="submit">Add</button>
       </form>
 

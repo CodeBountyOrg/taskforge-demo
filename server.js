@@ -8,7 +8,8 @@ const PORT = Number(process.env.PORT || 8000);
 const PUBLIC_DIR = __dirname;
 const PUBLIC_ROOT = `${PUBLIC_DIR}${path.sep}`;
 const DATA_FILE =
-  process.env.TASKFORGE_DATA_FILE || path.join(__dirname, ".taskforge-data.json");
+  process.env.TASKFORGE_DATA_FILE ||
+  path.join(__dirname, ".taskforge-data.json");
 const SESSION_COOKIE = "taskforge_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
@@ -17,6 +18,7 @@ const CONTENT_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
 };
 
@@ -261,6 +263,7 @@ function sanitizeTasks(tasks) {
     .map((task) => ({
       id: normalizeString(task.id).slice(0, 128),
       title: normalizeString(task.title).slice(0, 500),
+      description: normalizeString(task.description).slice(0, 2000),
       done: Boolean(task.done),
       createdAt: Number.isFinite(task.createdAt) ? task.createdAt : Date.now(),
     }))
