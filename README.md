@@ -9,6 +9,7 @@ A simple, community-maintained open-source task tracker. Add tasks, check them o
 - Single-page, zero-build web app
 - Tasks persist in `localStorage` by default, with optional GitHub sign-in sync
 - GitHub OAuth uses PKCE in the browser and an HTTP-only session cookie
+- Optional assignee emails queue hourly assignment digests with unsubscribe links
 - Keyboard-friendly (more shortcuts coming, see #5)
 - Light & dark themes (dark coming, see #1)
 - MIT licensed
@@ -25,6 +26,20 @@ open http://localhost:8000
 GitHub sign-in is enabled when `GITHUB_CLIENT_ID` is set. If your OAuth app
 requires it, set `GITHUB_CLIENT_SECRET` on the server too; the secret is only
 used by the backend token exchange endpoint.
+
+Assignment digest emails are queued when a signed-in user saves a task with an
+assignee email. By default the server logs digest bodies locally. To send with
+Resend, configure:
+
+```sh
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_...
+EMAIL_FROM="TaskForge <notifications@example.com>"
+APP_BASE_URL=https://your-taskforge-host.example
+```
+
+Digests wait one hour by default. For development, set
+`ASSIGNMENT_DIGEST_DELAY_MS=0` to deliver immediately on the next task save.
 
 ## Contributing
 

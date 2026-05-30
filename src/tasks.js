@@ -1,5 +1,6 @@
-export function createTask(title) {
+export function createTask(title, assigneeEmail = "") {
   return {
+    assigneeEmail: assigneeEmail.trim(),
     id: cryptoRandomId(),
     title: title.trim(),
     done: false,

@@ -5,7 +5,12 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { SESSION_COOKIE, createServer, sanitizeTasks } = require("../server.js");
+const {
+  SESSION_COOKIE,
+  createServer,
+  normalizeEmail,
+  sanitizeTasks,
+} = require("../server.js");
 
 test("sanitizeTasks drops malformed rows and trims persisted fields", () => {
   assert.deepEqual(
@@ -15,7 +20,39 @@ test("sanitizeTasks drops malformed rows and trims persisted fields", () => {
       { id: "missing-title", title: "" },
       null,
     ]),
-    [{ id: "a", title: "Write tests", done: true, createdAt: 10 }],
+    [
+      {
+        assigneeEmail: "",
+        id: "a",
+        title: "Write tests",
+        done: true,
+        createdAt: 10,
+      },
+    ],
+  );
+});
+
+test("sanitizeTasks normalizes valid assignee emails and drops invalid ones", () => {
+  assert.equal(normalizeEmail(" PERSON@Example.COM "), "person@example.com");
+  assert.equal(normalizeEmail("not-an-email"), "");
+  assert.deepEqual(
+    sanitizeTasks([
+      {
+        id: "task-1",
+        title: "Assign this",
+        assigneeEmail: " PERSON@Example.COM ",
+        createdAt: 20,
+      },
+    ]),
+    [
+      {
+        assigneeEmail: "person@example.com",
+        id: "task-1",
+        title: "Assign this",
+        done: false,
+        createdAt: 20,
+      },
+    ],
   );
 });
 
@@ -112,6 +149,7 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
     const loaded = await request(server, "/api/tasks", { cookie });
     assert.deepEqual(loaded.body.tasks, [
       {
+        assigneeEmail: "",
         id: "task-1",
         title: "Ship OAuth",
         done: false,
@@ -121,6 +159,150 @@ test("authenticated task API persists tasks by GitHub user id", async () => {
 
     const persisted = JSON.parse(await fs.readFile(dataFile, "utf8"));
     assert.equal(persisted.tasksByUser["7"][0].title, "Ship OAuth");
+  } finally {
+    await close(server);
+    restoreEnv("GITHUB_CLIENT_ID", previousClientId);
+  }
+});
+
+test("assignment notifications send one digest for multiple assigned tasks", async () => {
+  const previousClientId = process.env.GITHUB_CLIENT_ID;
+  process.env.GITHUB_CLIENT_ID = "client-id";
+  const messages = [];
+  const dataFile = await tempDataFile();
+  const server = await listen(
+    createServer({
+      appBaseUrl: "https://taskforge.example",
+      dataFile,
+      digestDelayMs: 0,
+      emailTransport: async (message) => messages.push(message),
+      fetchImpl: async (url) => {
+        if (url === "https://github.com/login/oauth/access_token") {
+          return jsonResponse({ access_token: "token" });
+        }
+        return jsonResponse({ id: 13, login: "octo", avatar_url: "" });
+      },
+    }),
+  );
+
+  try {
+    const cookie = await signIn(server);
+
+    await request(server, "/api/tasks", {
+      method: "PUT",
+      cookie,
+      body: {
+        tasks: [
+          {
+            id: "task-1",
+            title: "Write rollout plan",
+            assigneeEmail: "Dev@Example.com",
+          },
+          {
+            id: "task-2",
+            title: "Review launch notes",
+            assigneeEmail: "dev@example.com",
+          },
+        ],
+      },
+    });
+
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0].to, "dev@example.com");
+    assert.match(messages[0].subject, /\(2\)/);
+    assert.match(messages[0].text, /Write rollout plan/);
+    assert.match(messages[0].text, /Review launch notes/);
+    assert.match(messages[0].text, /Unsubscribe: https:\/\/taskforge\.example/);
+
+    await request(server, "/api/tasks", {
+      method: "PUT",
+      cookie,
+      body: {
+        tasks: [
+          {
+            id: "task-1",
+            title: "Write rollout plan",
+            assigneeEmail: "dev@example.com",
+          },
+          {
+            id: "task-2",
+            title: "Review launch notes",
+            assigneeEmail: "dev@example.com",
+          },
+        ],
+      },
+    });
+    assert.equal(messages.length, 1);
+  } finally {
+    await close(server);
+    restoreEnv("GITHUB_CLIENT_ID", previousClientId);
+  }
+});
+
+test("unsubscribe links remove pending digests and block future assignments", async () => {
+  const previousClientId = process.env.GITHUB_CLIENT_ID;
+  process.env.GITHUB_CLIENT_ID = "client-id";
+  const messages = [];
+  const dataFile = await tempDataFile();
+  const server = await listen(
+    createServer({
+      dataFile,
+      digestDelayMs: 60 * 60 * 1000,
+      emailTransport: async (message) => messages.push(message),
+      fetchImpl: async (url) => {
+        if (url === "https://github.com/login/oauth/access_token") {
+          return jsonResponse({ access_token: "token" });
+        }
+        return jsonResponse({ id: 14, login: "octo", avatar_url: "" });
+      },
+    }),
+  );
+
+  try {
+    const cookie = await signIn(server);
+    await request(server, "/api/tasks", {
+      method: "PUT",
+      cookie,
+      body: {
+        tasks: [
+          {
+            id: "task-1",
+            title: "Prepare brief",
+            assigneeEmail: "dev@example.com",
+          },
+        ],
+      },
+    });
+
+    let persisted = JSON.parse(await fs.readFile(dataFile, "utf8"));
+    const token = persisted.notificationState.recipients["dev@example.com"].token;
+    assert.equal(persisted.notificationState.pendingDigests.length, 1);
+
+    const unsubscribe = await textRequest(
+      server,
+      `/api/notifications/unsubscribe?token=${token}`,
+    );
+    assert.equal(unsubscribe.status, 200);
+    assert.match(unsubscribe.text, /unsubscribed/);
+
+    await request(server, "/api/tasks", {
+      method: "PUT",
+      cookie,
+      body: {
+        tasks: [
+          {
+            id: "task-2",
+            title: "Prepare follow-up",
+            assigneeEmail: "dev@example.com",
+          },
+        ],
+      },
+    });
+
+    persisted = JSON.parse(await fs.readFile(dataFile, "utf8"));
+    assert.equal(messages.length, 0);
+    assert.equal(persisted.notificationState.pendingDigests.length, 0);
+    assert.ok(persisted.notificationState.recipients["dev@example.com"].unsubscribedAt);
   } finally {
     await close(server);
     restoreEnv("GITHUB_CLIENT_ID", previousClientId);
@@ -207,6 +389,30 @@ async function request(server, pathname, options = {}) {
     headers: response.headers,
     status: response.status,
   };
+}
+
+async function textRequest(server, pathname, options = {}) {
+  const url = new URL(pathname, `http://127.0.0.1:${server.address().port}`);
+  const response = await fetch(url, {
+    method: options.method || "GET",
+  });
+  return {
+    headers: response.headers,
+    status: response.status,
+    text: await response.text(),
+  };
+}
+
+async function signIn(server) {
+  const login = await request(server, "/api/auth/github/exchange", {
+    method: "POST",
+    body: {
+      code: "code",
+      codeVerifier: "verifier",
+      redirectUri: "http://127.0.0.1:8000/",
+    },
+  });
+  return login.headers.get("set-cookie").split(";")[0];
 }
 
 function listen(server) {

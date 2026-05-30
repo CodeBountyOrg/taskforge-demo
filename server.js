@@ -11,6 +11,10 @@ const DATA_FILE =
   process.env.TASKFORGE_DATA_FILE || path.join(__dirname, ".taskforge-data.json");
 const SESSION_COOKIE = "taskforge_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+const ASSIGNMENT_DIGEST_DELAY_MS = Number(
+  process.env.ASSIGNMENT_DIGEST_DELAY_MS || 60 * 60 * 1000,
+);
+const APP_BASE_URL = process.env.APP_BASE_URL || `http://${HOST}:${PORT}`;
 
 const CONTENT_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -26,11 +30,28 @@ function createServer(options = {}) {
   const dataFile = options.dataFile || DATA_FILE;
   const fetchImpl = options.fetchImpl || global.fetch;
   const sessionStore = options.sessionStore || sessions;
+  const emailTransport = options.emailTransport || null;
+  const digestDelayMs =
+    options.digestDelayMs ?? Math.max(0, ASSIGNMENT_DIGEST_DELAY_MS);
+  const digestSweepIntervalMs =
+    options.digestSweepIntervalMs || Math.min(60 * 1000, digestDelayMs || 1000);
+  const enableDigestTimer = options.enableDigestTimer !== false;
+  const now = options.now || (() => Date.now());
+  const appBaseUrl = options.appBaseUrl || APP_BASE_URL;
+  const context = {
+    appBaseUrl,
+    dataFile,
+    digestDelayMs,
+    emailTransport,
+    fetchImpl,
+    now,
+    sessionStore,
+  };
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     try {
       if (req.url.startsWith("/api/")) {
-        await handleApi(req, res, { dataFile, fetchImpl, sessionStore });
+        await handleApi(req, res, context);
         return;
       }
       await serveStatic(req, res);
@@ -39,6 +60,17 @@ function createServer(options = {}) {
       sendJson(res, 500, { error: "internal_server_error" });
     }
   });
+
+  if (enableDigestTimer) {
+    const timer = setInterval(
+      () => sweepAssignmentDigests(context),
+      digestSweepIntervalMs,
+    );
+    timer.unref?.();
+    server.on("close", () => clearInterval(timer));
+  }
+
+  return server;
 }
 
 async function handleApi(req, res, context) {
@@ -69,6 +101,11 @@ async function handleApi(req, res, context) {
     if (sessionId) context.sessionStore.delete(sessionId);
     setSessionCookie(res, "", 0);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (url.pathname === "/api/notifications/unsubscribe") {
+    await unsubscribeFromNotifications(req, res, context, url);
     return;
   }
 
@@ -160,7 +197,8 @@ async function exchangeGitHubCode(req, res, { fetchImpl, sessionStore }) {
   sendJson(res, 200, { user });
 }
 
-async function handleTasks(req, res, { dataFile, sessionStore }) {
+async function handleTasks(req, res, context) {
+  const { dataFile, sessionStore } = context;
   const session = getSession(req, sessionStore);
   if (!session) {
     sendJson(res, 401, { error: "authentication_required" });
@@ -177,6 +215,14 @@ async function handleTasks(req, res, { dataFile, sessionStore }) {
     const body = await readJson(req);
     const tasks = sanitizeTasks(body.tasks);
     const data = await readData(dataFile);
+    const previousTasks = data.tasksByUser[session.user.id] || [];
+    await flushDueAssignmentDigests(data, context);
+    queueAssignmentDigests(
+      data,
+      collectAssignmentChanges(previousTasks, tasks, session.user, context.now()),
+      context,
+    );
+    await flushDueAssignmentDigests(data, context);
     data.tasksByUser[session.user.id] = tasks;
     await writeData(dataFile, data);
     sendJson(res, 200, { tasks });
@@ -233,12 +279,12 @@ async function readData(dataFile) {
   try {
     const parsed = JSON.parse(await fs.readFile(dataFile, "utf8"));
     if (parsed && typeof parsed === "object" && parsed.tasksByUser) {
-      return parsed;
+      return normalizeData(parsed);
     }
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
-  return { tasksByUser: {} };
+  return normalizeData({});
 }
 
 async function writeData(dataFile, data) {
@@ -261,6 +307,7 @@ function sanitizeTasks(tasks) {
     .map((task) => ({
       id: normalizeString(task.id).slice(0, 128),
       title: normalizeString(task.title).slice(0, 500),
+      assigneeEmail: normalizeEmail(task.assigneeEmail),
       done: Boolean(task.done),
       createdAt: Number.isFinite(task.createdAt) ? task.createdAt : Date.now(),
     }))
@@ -269,6 +316,247 @@ function sanitizeTasks(tasks) {
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeEmail(value) {
+  const email = normalizeString(value).toLowerCase();
+  if (!email || email.length > 254) return "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "";
+  return email;
+}
+
+function normalizeData(data) {
+  if (!data || typeof data !== "object") {
+    return { tasksByUser: {}, notificationState: emptyNotificationState() };
+  }
+  return {
+    tasksByUser:
+      data.tasksByUser && typeof data.tasksByUser === "object"
+        ? data.tasksByUser
+        : {},
+    notificationState: normalizeNotificationState(data.notificationState),
+  };
+}
+
+function emptyNotificationState() {
+  return { pendingDigests: [], recipients: {} };
+}
+
+function normalizeNotificationState(state) {
+  if (!state || typeof state !== "object") return emptyNotificationState();
+  return {
+    pendingDigests: Array.isArray(state.pendingDigests)
+      ? state.pendingDigests
+      : [],
+    recipients:
+      state.recipients && typeof state.recipients === "object"
+        ? state.recipients
+        : {},
+  };
+}
+
+function collectAssignmentChanges(previousTasks, nextTasks, user, assignedAt) {
+  const previousById = new Map(previousTasks.map((task) => [task.id, task]));
+  return nextTasks
+    .filter((task) => task.assigneeEmail)
+    .filter((task) => {
+      const previous = previousById.get(task.id);
+      return previous?.assigneeEmail !== task.assigneeEmail;
+    })
+    .map((task) => ({
+      assignedAt,
+      assignedBy: user.login,
+      assigneeEmail: task.assigneeEmail,
+      taskId: task.id,
+      title: task.title,
+    }));
+}
+
+function queueAssignmentDigests(data, assignments, { digestDelayMs, now }) {
+  if (assignments.length === 0) return;
+  const notificationState = data.notificationState;
+  const currentTime = now();
+
+  for (const assignment of assignments) {
+    const recipient = ensureRecipient(notificationState, assignment.assigneeEmail);
+    if (recipient.unsubscribedAt) continue;
+
+    let digest = notificationState.pendingDigests.find(
+      (item) =>
+        item.assigneeEmail === assignment.assigneeEmail &&
+        item.dueAt >= currentTime,
+    );
+    if (!digest) {
+      digest = {
+        id: crypto.randomBytes(12).toString("hex"),
+        assigneeEmail: assignment.assigneeEmail,
+        dueAt: currentTime + digestDelayMs,
+        token: recipient.token,
+        assignments: [],
+      };
+      notificationState.pendingDigests.push(digest);
+    }
+    const duplicate = digest.assignments.some(
+      (item) => item.taskId === assignment.taskId,
+    );
+    if (!duplicate) digest.assignments.push(assignment);
+  }
+}
+
+function ensureRecipient(notificationState, email) {
+  if (!notificationState.recipients[email]) {
+    notificationState.recipients[email] = {
+      token: crypto.randomBytes(24).toString("hex"),
+      unsubscribedAt: 0,
+    };
+  }
+  return notificationState.recipients[email];
+}
+
+async function flushDueAssignmentDigests(data, context) {
+  const notificationState = data.notificationState;
+  const due = [];
+  const pending = [];
+  const currentTime = context.now();
+
+  for (const digest of notificationState.pendingDigests) {
+    if (digest.dueAt <= currentTime) {
+      due.push(digest);
+    } else {
+      pending.push(digest);
+    }
+  }
+  notificationState.pendingDigests = pending;
+
+  for (const digest of due) {
+    const recipient = notificationState.recipients[digest.assigneeEmail];
+    if (recipient?.unsubscribedAt) continue;
+    try {
+      await sendAssignmentDigest(digest, context);
+    } catch (error) {
+      console.error("Failed to send assignment digest", error);
+      notificationState.pendingDigests.push({
+        ...digest,
+        dueAt: currentTime + context.digestDelayMs,
+      });
+    }
+  }
+}
+
+async function sweepAssignmentDigests(context) {
+  try {
+    const data = await readData(context.dataFile);
+    const previousCount = data.notificationState.pendingDigests.length;
+    await flushDueAssignmentDigests(data, context);
+    if (previousCount > 0) {
+      await writeData(context.dataFile, data);
+    }
+  } catch (error) {
+    console.error("Failed to sweep assignment digests", error);
+  }
+}
+
+async function sendAssignmentDigest(digest, context) {
+  const message = buildAssignmentDigestMessage(digest, context.appBaseUrl);
+  if (typeof context.emailTransport === "function") {
+    await context.emailTransport(message);
+    return;
+  }
+  if (process.env.EMAIL_PROVIDER === "resend") {
+    await sendWithResend(message, context.fetchImpl);
+    return;
+  }
+  console.log(
+    `Assignment digest for ${message.to}: ${message.subject}\n${message.text}`,
+  );
+}
+
+function buildAssignmentDigestMessage(digest, appBaseUrl) {
+  const unsubscribeUrl = new URL("/api/notifications/unsubscribe", appBaseUrl);
+  unsubscribeUrl.searchParams.set("token", digest.token);
+  const lines = digest.assignments.map(
+    (assignment) => `- ${assignment.title} (assigned by ${assignment.assignedBy})`,
+  );
+  const listItems = digest.assignments
+    .map(
+      (assignment) =>
+        `<li>${escapeHtml(assignment.title)} <span>assigned by ${escapeHtml(
+          assignment.assignedBy,
+        )}</span></li>`,
+    )
+    .join("");
+
+  return {
+    html: `<p>You have ${digest.assignments.length} new TaskForge assignment${
+      digest.assignments.length === 1 ? "" : "s"
+    }.</p><ul>${listItems}</ul><p><a href="${unsubscribeUrl}">Unsubscribe from assignment digests</a></p>`,
+    subject: `TaskForge assignment digest (${digest.assignments.length})`,
+    text: `You have ${digest.assignments.length} new TaskForge assignment${
+      digest.assignments.length === 1 ? "" : "s"
+    }.\n\n${lines.join("\n")}\n\nUnsubscribe: ${unsubscribeUrl}`,
+    to: digest.assigneeEmail,
+  };
+}
+
+async function sendWithResend(message, fetchImpl) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    throw new Error("resend_not_configured");
+  }
+  if (typeof fetchImpl !== "function") {
+    throw new Error("fetch_unavailable");
+  }
+  const response = await fetchImpl("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM,
+      html: message.html,
+      subject: message.subject,
+      text: message.text,
+      to: message.to,
+    }),
+  });
+  if (!response.ok) throw new Error("resend_delivery_failed");
+}
+
+async function unsubscribeFromNotifications(req, res, { dataFile, now }, url) {
+  if (req.method !== "GET" && req.method !== "POST") {
+    sendJson(res, 405, { error: "method_not_allowed" });
+    return;
+  }
+  const token = normalizeString(url.searchParams.get("token"));
+  const data = await readData(dataFile);
+  const entry = Object.entries(data.notificationState.recipients).find(
+    ([, recipient]) => recipient.token === token,
+  );
+  if (!token || !entry) {
+    sendText(res, 404, "Unsubscribe link not found.");
+    return;
+  }
+  const [email, recipient] = entry;
+  recipient.unsubscribedAt = now();
+  data.notificationState.pendingDigests =
+    data.notificationState.pendingDigests.filter(
+      (digest) => digest.assigneeEmail !== email,
+    );
+  await writeData(dataFile, data);
+  sendText(res, 200, "You have been unsubscribed from assignment digests.");
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[char];
+  });
 }
 
 function getSession(req, sessionStore) {
@@ -319,6 +607,8 @@ if (require.main === module) {
 
 module.exports = {
   SESSION_COOKIE,
+  collectAssignmentChanges,
   createServer,
+  normalizeEmail,
   sanitizeTasks,
 };
