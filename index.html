@@ -1,23 +1,37 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TaskForge — open-source task tracker</title>
+    <title>TaskForge - open-source task tracker</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="app-header">
       <div class="header-copy">
         <h1>TaskForge</h1>
-        <p class="tagline">A tiny task list that lives in your browser.</p>
+        <p class="tagline" data-i18n="tagline">
+          A tiny task list that lives in your browser.
+        </p>
       </div>
+      <label class="locale-control" for="locale-select">
+        <span data-i18n="languageLabel">Language</span>
+        <select id="locale-select" name="locale">
+          <option value="en">English</option>
+          <option value="es">Espanol</option>
+        </select>
+      </label>
       <div class="auth-panel" aria-live="polite">
         <img id="auth-avatar" class="auth-avatar" hidden />
-        <span id="auth-status" class="auth-status">
+        <span id="auth-status" class="auth-status" data-i18n="authLocal">
           Tasks are stored on this device.
         </span>
-        <button id="auth-action" class="auth-action" type="button">
+        <button
+          id="auth-action"
+          class="auth-action"
+          type="button"
+          data-i18n="signIn"
+        >
           Sign in with GitHub
         </button>
       </div>
@@ -26,21 +40,27 @@
     <main class="app-main">
       <p id="auth-message" class="auth-message" hidden></p>
 
-      <form id="task-form" class="task-form" aria-label="Add a new task">
+      <form
+        id="task-form"
+        class="task-form"
+        aria-label="Add a new task"
+        data-i18n-aria-label="newTaskAria"
+      >
         <input
           id="task-input"
           type="text"
           name="title"
           placeholder="What needs doing?"
+          data-i18n-placeholder="taskPlaceholder"
           autocomplete="off"
           required
         />
-        <button type="submit">Add</button>
+        <button type="submit" data-i18n="addButton">Add</button>
       </form>
 
       <ul id="task-list" class="task-list" aria-live="polite"></ul>
 
-      <p id="empty-state" class="empty-state" hidden>
+      <p id="empty-state" class="empty-state" data-i18n="emptyState" hidden>
         No tasks yet. Add one above to get started.
       </p>
     </main>
