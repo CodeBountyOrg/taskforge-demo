@@ -4,6 +4,7 @@ import {
   logout,
   startGitHubSignIn,
 } from "./auth.js";
+import { getInitialLocale, saveLocale, translate } from "./i18n.mjs";
 import { load, loadLocal, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
 
@@ -15,11 +16,15 @@ const authStatus = document.getElementById("auth-status");
 const authAction = document.getElementById("auth-action");
 const authAvatar = document.getElementById("auth-avatar");
 const authMessage = document.getElementById("auth-message");
+const localeSelect = document.getElementById("locale-select");
 
 let tasks = [];
 let user = null;
+let locale = getInitialLocale();
 
 async function init() {
+  localeSelect.value = locale;
+  applyTranslations();
   const localTasks = loadLocal();
   let completedSignIn = false;
   try {
@@ -72,8 +77,8 @@ function render() {
     const del = document.createElement("button");
     del.type = "button";
     del.className = "task-delete";
-    del.textContent = "✕";
-    del.setAttribute("aria-label", `Delete task: ${task.title}`);
+    del.textContent = "x";
+    del.setAttribute("aria-label", t("deleteTaskAria", { title: task.title }));
     del.addEventListener("click", async () => {
       tasks = removeTask(tasks, task.id);
       await save(tasks, user);
@@ -114,23 +119,50 @@ authAction.addEventListener("click", async () => {
   }
 });
 
+localeSelect.addEventListener("change", () => {
+  locale = localeSelect.value;
+  saveLocale(locale);
+  applyTranslations();
+  renderAuth();
+  render();
+});
+
 function renderAuth() {
   authAction.disabled = false;
   if (!user) {
     authAvatar.hidden = true;
     authAvatar.removeAttribute("src");
     authAvatar.removeAttribute("alt");
-    authStatus.textContent = "Tasks are stored on this device.";
-    authAction.textContent = "Sign in with GitHub";
+    authStatus.textContent = t("authLocal");
+    authAction.textContent = t("signIn");
     return;
   }
 
   authAvatar.hidden = false;
   authAvatar.src = user.avatarUrl;
   authAvatar.alt = `${user.login}'s avatar`;
-  authStatus.textContent = `Signed in as ${user.login}`;
-  authAction.textContent = "Logout";
+  authStatus.textContent = t("signedInAs", { login: user.login });
+  authAction.textContent = t("logout");
   setAuthMessage("");
+}
+
+function applyTranslations() {
+  document.documentElement.lang = locale;
+  document.title = t("documentTitle");
+
+  for (const element of document.querySelectorAll("[data-i18n]")) {
+    element.textContent = t(element.dataset.i18n);
+  }
+  for (const element of document.querySelectorAll("[data-i18n-placeholder]")) {
+    element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));
+  }
+  for (const element of document.querySelectorAll("[data-i18n-aria-label]")) {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  }
+}
+
+function t(key, values) {
+  return translate(locale, key, values);
 }
 
 function setAuthMessage(message) {

@@ -15,8 +15,8 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--fg);
   line-height: 1.5;
@@ -41,6 +41,24 @@ body {
   margin: 0.25rem 0 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.locale-control {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.locale-control select {
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .auth-panel {
@@ -201,6 +219,10 @@ body {
   .auth-panel {
     justify-content: flex-start;
     min-width: 0;
+    width: 100%;
+  }
+
+  .locale-control {
     width: 100%;
   }
 
