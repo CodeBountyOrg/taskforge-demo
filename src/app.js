@@ -6,6 +6,7 @@ import {
 } from "./auth.js";
 import { load, loadLocal, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
+import { initThemeToggle } from "./theme.mjs";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
@@ -20,6 +21,7 @@ let tasks = [];
 let user = null;
 
 async function init() {
+  initThemeToggle();
   const localTasks = loadLocal();
   let completedSignIn = false;
   try {
