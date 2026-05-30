@@ -10,7 +10,7 @@ A simple, community-maintained open-source task tracker. Add tasks, check them o
 - Tasks persist in `localStorage` by default, with optional GitHub sign-in sync
 - GitHub OAuth uses PKCE in the browser and an HTTP-only session cookie
 - Keyboard-friendly (more shortcuts coming, see #5)
-- Light & dark themes (dark coming, see #1)
+- Light and dark themes with a persisted preference
 - MIT licensed
 
 ## Quick start
