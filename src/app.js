@@ -9,6 +9,7 @@ import { createTask, toggleTask, removeTask } from "./tasks.js";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
+const assigneeEmailInput = document.getElementById("assignee-email-input");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 const authStatus = document.getElementById("auth-status");
@@ -69,6 +70,11 @@ function render() {
     label.className = "task-title";
     label.textContent = task.title;
 
+    const assignee = document.createElement("span");
+    assignee.className = "task-assignee";
+    assignee.textContent = task.assigneeEmail || "";
+    assignee.hidden = !task.assigneeEmail;
+
     const del = document.createElement("button");
     del.type = "button";
     del.className = "task-delete";
@@ -80,7 +86,7 @@ function render() {
       render();
     });
 
-    li.append(checkbox, label, del);
+    li.append(checkbox, label, assignee, del);
     list.appendChild(li);
   }
 }
@@ -88,10 +94,12 @@ function render() {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = input.value.trim();
+  const assigneeEmail = assigneeEmailInput.value.trim();
   if (!title) return;
-  tasks = [createTask(title), ...tasks];
+  tasks = [createTask(title, assigneeEmail), ...tasks];
   await save(tasks, user);
   input.value = "";
+  assigneeEmailInput.value = "";
   input.focus();
   render();
 });

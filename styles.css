@@ -111,6 +111,10 @@ body {
   border-radius: var(--radius);
 }
 
+.task-form input[type="email"] {
+  flex: 0 1 14rem;
+}
+
 .task-form input:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
@@ -157,6 +161,16 @@ body {
 .task-title {
   flex: 1;
   word-break: break-word;
+}
+
+.task-assignee {
+  max-width: 12rem;
+  padding: 0.15rem 0.45rem;
+  color: var(--muted);
+  background: rgba(9, 105, 218, 0.08);
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
 }
 
 .task-delete {
@@ -207,5 +221,13 @@ body {
   .auth-status {
     flex: 1;
     max-width: none;
+  }
+
+  .task-form {
+    flex-direction: column;
+  }
+
+  .task-form input[type="email"] {
+    flex-basis: auto;
   }
 }
