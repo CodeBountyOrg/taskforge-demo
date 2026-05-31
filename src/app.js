@@ -18,6 +18,7 @@ const authMessage = document.getElementById("auth-message");
 
 let tasks = [];
 let user = null;
+const taskNodes = new Map();
 
 async function init() {
   const localTasks = loadLocal();
@@ -41,59 +42,59 @@ async function init() {
     await save(tasks, user);
   }
   renderAuth();
-  render();
+  renderTasks();
 }
 
-function render() {
-  list.innerHTML = "";
+function renderTasks() {
+  list.textContent = "";
+  taskNodes.clear();
   if (tasks.length === 0) {
     emptyState.hidden = false;
     return;
   }
+
   emptyState.hidden = true;
+  const fragment = document.createDocumentFragment();
   for (const task of tasks) {
-    const li = document.createElement("li");
-    li.className = "task-item" + (task.done ? " done" : "");
-    li.dataset.id = task.id;
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = task.done;
-    checkbox.addEventListener("change", async () => {
-      tasks = toggleTask(tasks, task.id);
-      await save(tasks, user);
-      render();
-    });
-
-    const label = document.createElement("span");
-    label.className = "task-title";
-    label.textContent = task.title;
-
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "task-delete";
-    del.textContent = "✕";
-    del.setAttribute("aria-label", `Delete task: ${task.title}`);
-    del.addEventListener("click", async () => {
-      tasks = removeTask(tasks, task.id);
-      await save(tasks, user);
-      render();
-    });
-
-    li.append(checkbox, label, del);
-    list.appendChild(li);
+    const node = createTaskNode(task);
+    taskNodes.set(task.id, node);
+    fragment.appendChild(node);
   }
+  list.appendChild(fragment);
 }
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = input.value.trim();
   if (!title) return;
-  tasks = [createTask(title), ...tasks];
+  const task = createTask(title);
+  tasks = [task, ...tasks];
   await save(tasks, user);
   input.value = "";
   input.focus();
-  render();
+  prependTask(task);
+});
+
+list.addEventListener("change", async (event) => {
+  if (!event.target.matches("[data-task-toggle]")) return;
+  const taskId = event.target.closest(".task-item")?.dataset.id;
+  if (!taskId) return;
+
+  tasks = toggleTask(tasks, taskId);
+  const task = tasks.find((item) => item.id === taskId);
+  updateTaskNode(task);
+  await save(tasks, user);
+});
+
+list.addEventListener("click", async (event) => {
+  const deleteButton = event.target.closest("[data-task-delete]");
+  if (!deleteButton) return;
+  const taskId = deleteButton.closest(".task-item")?.dataset.id;
+  if (!taskId) return;
+
+  tasks = removeTask(tasks, taskId);
+  removeTaskNode(taskId);
+  await save(tasks, user);
 });
 
 authAction.addEventListener("click", async () => {
@@ -103,7 +104,7 @@ authAction.addEventListener("click", async () => {
       await logout();
       user = null;
       tasks = await load(user);
-      render();
+      renderTasks();
       renderAuth();
       return;
     }
@@ -136,6 +137,52 @@ function renderAuth() {
 function setAuthMessage(message) {
   authMessage.textContent = message;
   authMessage.hidden = !message;
+}
+
+function createTaskNode(task) {
+  const li = document.createElement("li");
+  li.className = "task-item" + (task.done ? " done" : "");
+  li.dataset.id = task.id;
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = task.done;
+  checkbox.dataset.taskToggle = "";
+
+  const label = document.createElement("span");
+  label.className = "task-title";
+  label.textContent = task.title;
+
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "task-delete";
+  del.textContent = "x";
+  del.dataset.taskDelete = "";
+  del.setAttribute("aria-label", `Delete task: ${task.title}`);
+
+  li.append(checkbox, label, del);
+  return li;
+}
+
+function prependTask(task) {
+  const node = createTaskNode(task);
+  taskNodes.set(task.id, node);
+  list.prepend(node);
+  emptyState.hidden = true;
+}
+
+function updateTaskNode(task) {
+  const node = taskNodes.get(task.id);
+  if (!node) return;
+  node.classList.toggle("done", task.done);
+  node.querySelector("[data-task-toggle]").checked = task.done;
+}
+
+function removeTaskNode(taskId) {
+  const node = taskNodes.get(taskId);
+  if (node) node.remove();
+  taskNodes.delete(taskId);
+  emptyState.hidden = tasks.length > 0;
 }
 
 function mergeTasks(localTasks, remoteTasks) {
