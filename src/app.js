@@ -6,9 +6,12 @@ import {
 } from "./auth.js";
 import { load, loadLocal, save } from "./storage.js";
 import { createTask, toggleTask, removeTask } from "./tasks.js";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
+const descInput = document.getElementById("task-desc");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 const authStatus = document.getElementById("auth-status");
@@ -69,6 +72,13 @@ function render() {
     label.className = "task-title";
     label.textContent = task.title;
 
+    const body = document.createElement("div");
+    body.className = "task-body";
+    if (task.description) {
+      const rawHtml = marked.parse(task.description, { breaks: true });
+      body.innerHTML = DOMPurify.sanitize(rawHtml);
+    }
+
     const del = document.createElement("button");
     del.type = "button";
     del.className = "task-delete";
@@ -80,7 +90,7 @@ function render() {
       render();
     });
 
-    li.append(checkbox, label, del);
+    li.append(checkbox, label, body, del);
     list.appendChild(li);
   }
 }
@@ -88,10 +98,12 @@ function render() {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = input.value.trim();
+  const description = descInput.value.trim();
   if (!title) return;
-  tasks = [createTask(title), ...tasks];
+  tasks = [createTask(title, description), ...tasks];
   await save(tasks, user);
   input.value = "";
+  descInput.value = "";
   input.focus();
   render();
 });
